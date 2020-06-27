@@ -372,7 +372,8 @@ func (n *VirtualNetwork) sendMulticast(withdraw bool) error {
 		IPAddress:       net.ParseIP(n.routerId),
 		ETag:            uint32(n.config.Etag),
 	}
-	nlri := bgp.NewEVPNNLRI(bgp.EVPN_INCLUSIVE_MULTICAST_ETHERNET_TAG, 0, multicastEtag)
+//	nlri := bgp.NewEVPNNLRI(bgp.EVPN_INCLUSIVE_MULTICAST_ETHERNET_TAG, 0, multicastEtag)
+	nlri := bgp.NewEVPNNLRI(bgp.EVPN_INCLUSIVE_MULTICAST_ETHERNET_TAG, multicastEtag)
 	nexthop := "0.0.0.0"
 	pattrs = append(pattrs, bgp.NewPathAttributeMpReachNLRI(nexthop, []bgp.AddrPrefixInterface{nlri}))
 
@@ -400,7 +401,8 @@ func (f *VirtualNetwork) modPath(n *netlinkEvent) error {
 		Labels:           []uint32{uint32(f.config.VNI)},
 		ETag:             uint32(f.config.Etag),
 	}
-	nlri := bgp.NewEVPNNLRI(bgp.EVPN_ROUTE_TYPE_MAC_IP_ADVERTISEMENT, 0, macIpAdv)
+//	nlri := bgp.NewEVPNNLRI(bgp.EVPN_ROUTE_TYPE_MAC_IP_ADVERTISEMENT, 0, macIpAdv)
+	nlri := bgp.NewEVPNNLRI(bgp.EVPN_ROUTE_TYPE_MAC_IP_ADVERTISEMENT, macIpAdv)
 	nexthop := "0.0.0.0"
 	pattrs = append(pattrs, bgp.NewPathAttributeMpReachNLRI(nexthop, []bgp.AddrPrefixInterface{nlri}))
 
