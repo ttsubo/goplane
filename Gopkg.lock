@@ -133,8 +133,8 @@
     "zebra",
   ]
   pruneopts = ""
-  revision = "d6c16da8988298e1098b50bb57af45004e0c146e"
-  version = "v1.31"
+  revision = "a6e0d00a705146e6b7f72a4d58c61b063980cc65"
+  version = "v1.32"
 
 [[projects]]
   digest = "1:049b5bee78dfdc9628ee0e557219c41f683e5b06c5a5f20eaba0105ccc586689"
