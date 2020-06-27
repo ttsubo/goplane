@@ -66,6 +66,8 @@ func (n *VirtualNetwork) modVrf(withdraw bool) error {
 	if withdraw {
 		return n.client.DeleteVRF(n.config.RD)
 	}
+	log.Debugf("RD: %s", n.config.RD)
+	log.Debugf("rd: %s", rd)
 	return n.client.AddVRF(n.config.RD, 0, rd, []bgp.ExtendedCommunityInterface{rt}, []bgp.ExtendedCommunityInterface{rt})
 }
 
@@ -380,6 +382,7 @@ func (n *VirtualNetwork) sendMulticast(withdraw bool) error {
 	pattrs = append(pattrs, bgp.NewPathAttributePmsiTunnel(bgp.PMSI_TUNNEL_TYPE_INGRESS_REPL, false, 0, id))
 
 	path := table.NewPath(nil, nlri, withdraw, pattrs, time.Now(), false)
+	log.Debugf("RD: %s", n.config.RD)
 	_, err := n.client.AddVRFPath(n.config.RD, []*table.Path{path})
 	return err
 }
@@ -403,11 +406,12 @@ func (f *VirtualNetwork) modPath(n *netlinkEvent) error {
 
 	pattrs = append(pattrs, bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_IGP))
 
-	isTransitive := true
-	o := bgp.NewOpaqueExtended(isTransitive)
-	o.SubType = bgp.EC_SUBTYPE_ENCAPSULATION
-	o.Value = &bgp.EncapExtended{bgp.TUNNEL_TYPE_VXLAN}
-	pattrs = append(pattrs, bgp.NewPathAttributeExtendedCommunities([]bgp.ExtendedCommunityInterface{o}))
+//	isTransitive := true
+//	o := bgp.NewOpaqueExtended(isTransitive)
+//	o.SubType = bgp.EC_SUBTYPE_ENCAPSULATION
+//	o.Value = &bgp.EncapExtended{bgp.TUNNEL_TYPE_VXLAN}
+//	pattrs = append(pattrs, bgp.NewPathAttributeExtendedCommunities([]bgp.ExtendedCommunityInterface{o}))
+	pattrs = append(pattrs, bgp.NewPathAttributeExtendedCommunities([]bgp.ExtendedCommunityInterface{bgp.NewEncapExtended(bgp.TUNNEL_TYPE_VXLAN)}))
 	path := table.NewPath(nil, nlri, n.isWithdraw, pattrs, time.Now(), false)
 
 	_, err := f.client.AddPath([]*table.Path{path})

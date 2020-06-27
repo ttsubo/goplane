@@ -118,7 +118,7 @@
   revision = "d0303fe809921458f417bcf828397a65db30a7e4"
 
 [[projects]]
-  digest = "1:fc85872ba7f6cdc7c43a155f0a3eec468e14080e45ef1ff5b2c947157282a0cb"
+  digest = "1:8c603cbe0a593180ea5e80e033c17adc6e0524ab39f10fcff72ff2fc19ca60e4"
   name = "github.com/osrg/gobgp"
   packages = [
     "api",
@@ -133,8 +133,8 @@
     "zebra",
   ]
   pruneopts = ""
-  revision = "5dfe0ba86f401774f0742444d47dc58d0f4949a8"
-  version = "v1.28"
+  revision = "33b1ed91697abc273317c9ad7d1579dabebb9e5f"
+  version = "v1.29"
 
 [[projects]]
   digest = "1:049b5bee78dfdc9628ee0e557219c41f683e5b06c5a5f20eaba0105ccc586689"
