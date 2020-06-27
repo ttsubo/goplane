@@ -194,11 +194,11 @@ func main() {
 						log.Fatalf("failed to set zebra config: %s", err)
 					}
 				}
-				if len(newConfig.Collector.Config.Url) > 0 {
-					if err := bgpServer.StartCollector(&newConfig.Collector.Config); err != nil {
-						log.Fatalf("failed to set collector config: %s", err)
-					}
-				}
+//				if len(newConfig.Collector.Config.Url) > 0 {
+//					if err := bgpServer.StartCollector(&newConfig.Collector.Config); err != nil {
+//						log.Fatalf("failed to set collector config: %s", err)
+//					}
+//				}
 				for _, c := range newConfig.RpkiServers {
 					if err := bgpServer.AddRpki(&c.Config); err != nil {
 						log.Fatalf("failed to set rpki config: %s", err)
@@ -232,7 +232,9 @@ func main() {
 				}
 
 			} else {
-				added, deleted, updated, updatePolicy = bgpconfig.UpdateConfig(c, newConfig)
+//				added, deleted, updated, updatePolicy = bgpconfig.UpdateConfig(c, newConfig)
+				added, deleted, updated = bgpconfig.UpdateNeighborConfig(c, newConfig)
+				updatePolicy = bgpconfig.CheckPolicyDifference(bgpconfig.ConfigSetToRoutingPolicy(c), bgpconfig.ConfigSetToRoutingPolicy(newConfig))
 				if updatePolicy {
 					log.Info("Policy config is updated")
 					p := bgpconfig.ConfigSetToRoutingPolicy(newConfig)
