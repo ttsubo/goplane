@@ -365,7 +365,11 @@ func (n *VirtualNetwork) sendMulticast(withdraw bool) error {
 
 	pattrs = append(pattrs, bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_IGP))
 
-	var rd bgp.RouteDistinguisherInterface
+//	var rd bgp.RouteDistinguisherInterface
+	rd, err := bgp.ParseRouteDistinguisher(n.config.RD)
+	if err != nil {
+		return err
+	}
 	multicastEtag := &bgp.EVPNMulticastEthernetTagRoute{
 		RD:              rd,
 		IPAddressLength: uint8(32),
@@ -384,14 +388,19 @@ func (n *VirtualNetwork) sendMulticast(withdraw bool) error {
 
 	path := table.NewPath(nil, nlri, withdraw, pattrs, time.Now(), false)
 	log.Debugf("RD: %s", n.config.RD)
-	_, err := n.client.AddVRFPath(n.config.RD, []*table.Path{path})
+	_, err = n.client.AddVRFPath(n.config.RD, []*table.Path{path})
 	return err
 }
 
 func (f *VirtualNetwork) modPath(n *netlinkEvent) error {
 	pattrs := []bgp.PathAttributeInterface{}
 
+	rd, err := bgp.ParseRouteDistinguisher(f.config.RD)
+	if err != nil {
+		return err
+	}
 	macIpAdv := &bgp.EVPNMacIPAdvertisementRoute{
+		RD:              rd,
 		ESI: bgp.EthernetSegmentIdentifier{
 			Type: bgp.ESI_ARBITRARY,
 		},
@@ -416,7 +425,7 @@ func (f *VirtualNetwork) modPath(n *netlinkEvent) error {
 	pattrs = append(pattrs, bgp.NewPathAttributeExtendedCommunities([]bgp.ExtendedCommunityInterface{bgp.NewEncapExtended(bgp.TUNNEL_TYPE_VXLAN)}))
 	path := table.NewPath(nil, nlri, n.isWithdraw, pattrs, time.Now(), false)
 
-	_, err := f.client.AddPath([]*table.Path{path})
+	_, err = f.client.AddPath([]*table.Path{path})
 	return err
 }
 
