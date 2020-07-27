@@ -16,7 +16,7 @@
 package config
 
 import (
-	bgpconfig "github.com/osrg/gobgp/config"
+	bgpconfig "github.com/ttsubo/goplane/internal/pkg/config"
 )
 
 type VirtualNetwork struct {

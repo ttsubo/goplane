@@ -2,17 +2,6 @@
 
 
 [[projects]]
-  digest = "1:b9585eba46f28b2dbdb61168d95d34d7646825ceb0111666c0326a835a59b6f2"
-  name = "github.com/Sirupsen/logrus"
-  packages = [
-    ".",
-    "hooks/syslog",
-  ]
-  pruneopts = ""
-  revision = "ba1b36c82c5e05c4f912a88eab0dcd91a171688f"
-  version = "v0.11.5"
-
-[[projects]]
   branch = "master"
   digest = "1:2a1e6af234d7de1ccf4504f397cf7cfa82922ee59b29252e3c34cb38d0b91989"
   name = "github.com/armon/go-radix"
@@ -27,6 +16,22 @@
   pruneopts = ""
   revision = "f901d6c2a4f2a4df092b98c33366dfba1f93d7a0"
   version = "v0.4.5"
+
+[[projects]]
+  digest = "1:0deddd908b6b4b768cfc272c16ee61e7088a60f7fe2f06c547bd3d8e1f8b8e77"
+  name = "github.com/davecgh/go-spew"
+  packages = ["spew"]
+  pruneopts = ""
+  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
+  version = "v1.1.1"
+
+[[projects]]
+  branch = "master"
+  digest = "1:10c08ce6e6d9dc96a5a0b5b1e9c5a366868320f15989a5f2ee9c319bc9f17118"
+  name = "github.com/dgryski/go-farm"
+  packages = ["."]
+  pruneopts = ""
+  revision = "a6ae2369ad13dc757768086f0cb902728c7e03e5"
 
 [[projects]]
   digest = "1:ea959741586120518b3d51d0921fd7c789883036444502f5411273dcb2e59e5f"
@@ -58,7 +63,11 @@
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
+    "ptypes",
     "ptypes/any",
+    "ptypes/duration",
+    "ptypes/empty",
+    "ptypes/timestamp",
   ]
   pruneopts = ""
   revision = "748d386b5c1ea99658fd69fe9f03991ce86a90c1"
@@ -82,24 +91,20 @@
   revision = "392dba7d905ed5d04a5794ba89f558b27e2ba1ca"
 
 [[projects]]
-  digest = "1:c78aaf66f2a0a9520aebb342aecc08eb9c7a826a2c5a13ce30f467283dc4f50b"
-  name = "github.com/influxdata/influxdb"
-  packages = [
-    "client/v2",
-    "models",
-    "pkg/escape",
-  ]
-  pruneopts = ""
-  revision = "5887e92e8950435ac7e496ff8dada784051284b7"
-  version = "v1.3.1"
-
-[[projects]]
   digest = "1:550e69376be9a028e7a039090d635e949134873c651a74a95a8896552db372b8"
   name = "github.com/jessevdk/go-flags"
   packages = ["."]
   pruneopts = ""
   revision = "96dc06278ce32a0e9d957d590bb987c81ee66407"
   version = "v1.3.0"
+
+[[projects]]
+  digest = "1:bc1620e5da7b137ec9b19834fedd16ad491c68c29fa2bf075b0eeec9c447556d"
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  pruneopts = ""
+  revision = "edb144dfd453055e1e49a3d8b410a660b5a87613"
+  version = "v1.0.3"
 
 [[projects]]
   digest = "1:1ce378ab2352c756c6d7a0172c22ecbd387659d32712a4ce3bc474273309a5dc"
@@ -118,23 +123,45 @@
   revision = "d0303fe809921458f417bcf828397a65db30a7e4"
 
 [[projects]]
-  digest = "1:f8cb1fbcda5e7b782d980838348e17611e0998a0b630dc92e135b21ecef306b0"
+  branch = "master"
+  digest = "1:d0fe13cdca7c3c0cbe1015b27957ad1b3fc5ba320f5ffd4f3f1bff8332a0427f"
+  name = "github.com/mmcloughlin/avo"
+  packages = [
+    "attr",
+    "build",
+    "buildtags",
+    "gotypes",
+    "internal/prnt",
+    "internal/stack",
+    "ir",
+    "operand",
+    "pass",
+    "printer",
+    "reg",
+    "src",
+    "x86",
+  ]
+  pruneopts = ""
+  revision = "4439b6b2c061e9165cbf684bfad25e1f1d028393"
+
+[[projects]]
+  digest = "1:87196775abd895edd5bf7c44ac7d5081d0253d7a77616331cb5f295fa3d9b3cb"
   name = "github.com/osrg/gobgp"
   packages = [
     "api",
-    "client",
-    "config",
-    "packet/bgp",
-    "packet/bmp",
-    "packet/mrt",
-    "packet/rtr",
-    "server",
-    "table",
-    "zebra",
+    "internal/pkg/apiutil",
+    "internal/pkg/config",
+    "internal/pkg/table",
+    "internal/pkg/zebra",
+    "pkg/packet/bgp",
+    "pkg/packet/bmp",
+    "pkg/packet/mrt",
+    "pkg/packet/rtr",
+    "pkg/server",
   ]
   pruneopts = ""
-  revision = "8e6bd4c7145de5a68c40246418500bf05af9ce39"
-  version = "v1.33"
+  revision = "4067827a0e086d6af98d0f6c71bec757748c46ba"
+  version = "v2.0.0"
 
 [[projects]]
   digest = "1:049b5bee78dfdc9628ee0e557219c41f683e5b06c5a5f20eaba0105ccc586689"
@@ -153,12 +180,31 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:256484dbbcd271f9ecebc6795b2df8cad4c458dd0f5fd82a8c2fa0c29f233411"
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  pruneopts = ""
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   digest = "1:d4fec58ef1540ef89350bf22c25e013a9f9f57de12180d9067a1e25a5925d99b"
   name = "github.com/satori/go.uuid"
   packages = ["."]
   pruneopts = ""
   revision = "36e9d2ebbde5e3f13ab2e25625fd453271d6522e"
+
+[[projects]]
+  digest = "1:f1ce6edca10c753e86727ef53ee19c4e83969d259a8dd9eb453bc3e3002d82d5"
+  name = "github.com/sirupsen/logrus"
+  packages = [
+    ".",
+    "hooks/syslog",
+  ]
+  pruneopts = ""
+  revision = "60c74ad9be0d874af0ab0daef6ab07c5c5911f0d"
+  version = "v1.6.0"
 
 [[projects]]
   branch = "master"
@@ -204,12 +250,15 @@
   revision = "25b30aa063fc18e48662b86996252eabdcf2f0c7"
 
 [[projects]]
-  digest = "1:3926a4ec9a4ff1a072458451aa2d9b98acd059a45b38f7335d31e06c3d6a0159"
+  digest = "1:83fd2513b9f6ae0997bf646db6b74e9e00131e31002116fda597175f25add42d"
   name = "github.com/stretchr/testify"
-  packages = ["assert"]
+  packages = [
+    "assert",
+    "require",
+  ]
   pruneopts = ""
-  revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
-  version = "v1.1.4"
+  revision = "f654a9112bbeac49ca2cd45bfbe11533c4666cf8"
+  version = "v1.6.1"
 
 [[projects]]
   branch = "master"
@@ -229,6 +278,14 @@
   packages = ["."]
   pruneopts = ""
   revision = "86bef332bfc3b59b7624a600bd53009ce91a9829"
+
+[[projects]]
+  digest = "1:ba49944a3238ae8f163c85b6d01d2db51cd5b09807105a3cfaacbd414744ca82"
+  name = "golang.org/x/mod"
+  packages = ["semver"]
+  pruneopts = ""
+  revision = "859b3ef565e237f9f1a0fb6b55385c497545680d"
+  version = "v0.3.0"
 
 [[projects]]
   branch = "master"
@@ -271,6 +328,39 @@
   ]
   pruneopts = ""
   revision = "3bd178b88a8180be2df394a1fbb81313916f0e7b"
+
+[[projects]]
+  branch = "master"
+  digest = "1:4151248c8ed8813cda0c13907c2c55117d3ca36cfa68c4d3947e80127c8635ad"
+  name = "golang.org/x/tools"
+  packages = [
+    "go/ast/astutil",
+    "go/gcexportdata",
+    "go/internal/gcimporter",
+    "go/internal/packagesdriver",
+    "go/packages",
+    "go/types/typeutil",
+    "internal/event",
+    "internal/event/core",
+    "internal/event/keys",
+    "internal/event/label",
+    "internal/gocommand",
+    "internal/packagesinternal",
+    "internal/typesinternal",
+  ]
+  pruneopts = ""
+  revision = "102e7d35703151d99b09a7158e6fc667492075b5"
+
+[[projects]]
+  branch = "master"
+  digest = "1:9d4ac09a835404ae9306c6e1493cf800ecbb0f3f828f4333b3e055de4c962eea"
+  name = "golang.org/x/xerrors"
+  packages = [
+    ".",
+    "internal",
+  ]
+  pruneopts = ""
+  revision = "9bdfabe68543c54f90421aeb9a60ef8061b5b544"
 
 [[projects]]
   branch = "master"
@@ -319,23 +409,41 @@
   pruneopts = ""
   revision = "25c4ec802a7d637f88d584ab26798e94ad14c13b"
 
+[[projects]]
+  branch = "v3"
+  digest = "1:2e9c4d6def1d36dcd17730e00c06b49a2e97ea5e1e639bcd24fa60fa43e33ad6"
+  name = "gopkg.in/yaml.v3"
+  packages = ["."]
+  pruneopts = ""
+  revision = "eeeca48fe7764f320e4870d231902bf9c1be2c08"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/Sirupsen/logrus",
-    "github.com/Sirupsen/logrus/hooks/syslog",
+    "github.com/armon/go-radix",
     "github.com/coreos/go-iptables/iptables",
+    "github.com/dgryski/go-farm",
+    "github.com/golang/protobuf/ptypes",
+    "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/jessevdk/go-flags",
     "github.com/osrg/gobgp/api",
-    "github.com/osrg/gobgp/client",
-    "github.com/osrg/gobgp/config",
-    "github.com/osrg/gobgp/packet/bgp",
-    "github.com/osrg/gobgp/server",
-    "github.com/osrg/gobgp/table",
+    "github.com/osrg/gobgp/internal/pkg/apiutil",
+    "github.com/osrg/gobgp/internal/pkg/config",
+    "github.com/osrg/gobgp/internal/pkg/zebra",
+    "github.com/osrg/gobgp/pkg/packet/bgp",
+    "github.com/osrg/gobgp/pkg/packet/bmp",
+    "github.com/osrg/gobgp/pkg/packet/rtr",
+    "github.com/osrg/gobgp/pkg/server",
+    "github.com/sirupsen/logrus",
+    "github.com/sirupsen/logrus/hooks/syslog",
     "github.com/spf13/viper",
+    "github.com/stretchr/testify/assert",
+    "github.com/stretchr/testify/require",
     "github.com/vishvananda/netlink",
     "github.com/vishvananda/netlink/nl",
+    "golang.org/x/net/context",
+    "google.golang.org/grpc",
     "gopkg.in/tomb.v2",
   ]
   solver-name = "gps-cdcl"

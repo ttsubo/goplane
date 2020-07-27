@@ -17,30 +17,43 @@ package main
 
 import (
 	"io/ioutil"
-	"log/syslog"
 	"os"
 	"os/signal"
 	"runtime"
-	"strings"
 	"syscall"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/Sirupsen/logrus/hooks/syslog"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/jessevdk/go-flags"
-	"github.com/osrg/goplane/config"
-	"github.com/osrg/goplane/iptables"
-	"github.com/osrg/goplane/netlink"
+	"google.golang.org/grpc"
+	"github.com/ttsubo/goplane/config"
+	"github.com/ttsubo/goplane/netlink"
+	"github.com/ttsubo/goplane/internal/pkg/apiutil"
+	"github.com/ttsubo/goplane/internal/pkg/table"
 
+	"github.com/osrg/gobgp/pkg/packet/bgp"
+	bgpserver "github.com/osrg/gobgp/pkg/server"
+	bgpconfig "github.com/ttsubo/goplane/internal/pkg/config"
 	bgpapi "github.com/osrg/gobgp/api"
-	bgpconfig "github.com/osrg/gobgp/config"
-	"github.com/osrg/gobgp/packet/bgp"
-	bgpserver "github.com/osrg/gobgp/server"
 )
 
 type Dataplaner interface {
 	Serve() error
 	AddVirtualNetwork(config.VirtualNetwork) error
 	DeleteVirtualNetwork(config.VirtualNetwork) error
+}
+
+func marshalRouteTargets(l []string) ([]*any.Any, error) {
+	rtList := make([]*any.Any, 0, len(l))
+	for _, rtString := range l {
+		rt, err := bgp.ParseRouteTarget(rtString)
+		if err != nil {
+			return nil, err
+		}
+		rtList = append(rtList, apiutil.MarshalRT(rt))
+	}
+	return rtList, nil
 }
 
 func main() {
@@ -50,14 +63,12 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGHUP)
 
 	var opts struct {
-		ConfigFile      string `short:"f" long:"config-file" description:"specifying a config file"`
-		ConfigType      string `short:"t" long:"config-type" description:"specifying config type (toml, yaml, json)" default:"toml"`
-		LogLevel        string `short:"l" long:"log-level" description:"specifying log level"`
-		LogPlain        bool   `short:"p" long:"log-plain" description:"use plain format for logging (json by default)"`
-		UseSyslog       string `short:"s" long:"syslog" description:"use syslogd"`
-		Facility        string `long:"syslog-facility" description:"specify syslog facility"`
+		ConfigFile string `short:"f" long:"config-file" description:"specifying a config file"`
+		ConfigType string `short:"t" long:"config-type" description:"specifying config type (toml, yaml, json)" default:"toml"`
+		LogLevel   string `short:"l" long:"log-level" description:"specifying log level"`
+		LogPlain   bool   `short:"p" long:"log-plain" description:"use plain format for logging (json by default)"`
 		DisableStdlog   bool   `long:"disable-stdlog" description:"disable standard logging"`
-		GrpcHost        string `long:"grpc-host" description:"grpc host" default:":50051"`
+		GrpcHosts       string `long:"api-hosts" description:"specify the hosts that gobgpd listens on" default:":50051"`
 		Remote          bool   `short:"r" long:"remote-gobgp" description:"remote gobgp mode"`
 		GracefulRestart bool   `short:"g" long:"graceful-restart" description:"flag restart-state in graceful-restart capability"`
 	}
@@ -81,69 +92,13 @@ func main() {
 		log.SetOutput(os.Stdout)
 	}
 
-	if opts.UseSyslog != "" {
-		dst := strings.SplitN(opts.UseSyslog, ":", 2)
-		network := ""
-		addr := ""
-		if len(dst) == 2 {
-			network = dst[0]
-			addr = dst[1]
+	if opts.LogPlain {
+		if opts.DisableStdlog {
+			log.SetFormatter(&log.TextFormatter{
+				DisableColors: true,
+			})
 		}
-
-		facility := syslog.Priority(0)
-		switch opts.Facility {
-		case "kern":
-			facility = syslog.LOG_KERN
-		case "user":
-			facility = syslog.LOG_USER
-		case "mail":
-			facility = syslog.LOG_MAIL
-		case "daemon":
-			facility = syslog.LOG_DAEMON
-		case "auth":
-			facility = syslog.LOG_AUTH
-		case "syslog":
-			facility = syslog.LOG_SYSLOG
-		case "lpr":
-			facility = syslog.LOG_LPR
-		case "news":
-			facility = syslog.LOG_NEWS
-		case "uucp":
-			facility = syslog.LOG_UUCP
-		case "cron":
-			facility = syslog.LOG_CRON
-		case "authpriv":
-			facility = syslog.LOG_AUTHPRIV
-		case "ftp":
-			facility = syslog.LOG_FTP
-		case "local0":
-			facility = syslog.LOG_LOCAL0
-		case "local1":
-			facility = syslog.LOG_LOCAL1
-		case "local2":
-			facility = syslog.LOG_LOCAL2
-		case "local3":
-			facility = syslog.LOG_LOCAL3
-		case "local4":
-			facility = syslog.LOG_LOCAL4
-		case "local5":
-			facility = syslog.LOG_LOCAL5
-		case "local6":
-			facility = syslog.LOG_LOCAL6
-		case "local7":
-			facility = syslog.LOG_LOCAL7
-		}
-
-		hook, err := logrus_syslog.NewSyslogHook(network, addr, syslog.LOG_INFO|facility, "bgpd")
-		if err != nil {
-			log.Error("Unable to connect to syslog daemon, ", opts.UseSyslog)
-			os.Exit(1)
-		} else {
-			log.AddHook(hook)
-		}
-	}
-
-	if opts.LogPlain == false {
+	} else {
 		log.SetFormatter(&log.JSONFormatter{})
 	}
 
@@ -158,21 +113,17 @@ func main() {
 	reloadCh <- true
 
 	var bgpServer *bgpserver.BgpServer
+	maxSize := 256 << 20
+	grpcOpts := []grpc.ServerOption{grpc.MaxRecvMsgSize(maxSize), grpc.MaxSendMsgSize(maxSize)}
 	if !opts.Remote {
-		bgpServer = bgpserver.NewBgpServer()
+		log.Info("gobgpd started")
+		bgpServer = bgpserver.NewBgpServer(bgpserver.GrpcListenAddress(opts.GrpcHosts), bgpserver.GrpcOption(grpcOpts))
 		go bgpServer.Serve()
-		grpcServer := bgpapi.NewGrpcServer(bgpServer, opts.GrpcHost)
-		go func() {
-			if err := grpcServer.Serve(); err != nil {
-				log.Fatalf("failed to listen grpc port: %s", err)
-			}
-		}()
 	}
 
 	var dataplane Dataplaner
 	var d *config.Dataplane
 	var c *bgpconfig.BgpConfigSet
-	var fsAgent *iptables.FlowspecAgent
 	for {
 		select {
 		case newConfig := <-bgpConfigCh:
@@ -182,47 +133,111 @@ func main() {
 			}
 
 			var added, deleted, updated []bgpconfig.Neighbor
+			var addedPg, deletedPg, updatedPg []bgpconfig.PeerGroup
 			var updatePolicy bool
 
 			if c == nil {
 				c = newConfig
-				if err := bgpServer.Start(&newConfig.Global); err != nil {
+				if err := bgpServer.StartBgp(context.Background(), &bgpapi.StartBgpRequest{
+					Global: bgpconfig.NewGlobalFromConfigStruct(&c.Global),
+				}); err != nil {
 					log.Fatalf("failed to set global config: %s", err)
 				}
+
 				if newConfig.Zebra.Config.Enabled {
-					if err := bgpServer.StartZebraClient(&newConfig.Zebra.Config); err != nil {
+					tps := c.Zebra.Config.RedistributeRouteTypeList
+					l := make([]string, 0, len(tps))
+					for _, t := range tps {
+						l = append(l, string(t))
+					}
+					if err := bgpServer.EnableZebra(context.Background(), &bgpapi.EnableZebraRequest{
+						Url:                  c.Zebra.Config.Url,
+						RouteTypes:           l,
+						Version:              uint32(c.Zebra.Config.Version),
+						NexthopTriggerEnable: c.Zebra.Config.NexthopTriggerEnable,
+						NexthopTriggerDelay:  uint32(c.Zebra.Config.NexthopTriggerDelay),
+					}); err != nil {
 						log.Fatalf("failed to set zebra config: %s", err)
 					}
 				}
-//				if len(newConfig.Collector.Config.Url) > 0 {
-//					if err := bgpServer.StartCollector(&newConfig.Collector.Config); err != nil {
-//						log.Fatalf("failed to set collector config: %s", err)
-//					}
-//				}
+
+				if len(newConfig.Collector.Config.Url) > 0 {
+					log.Fatal("collector feature is not supported")
+				}
+
 				for _, c := range newConfig.RpkiServers {
-					if err := bgpServer.AddRpki(&c.Config); err != nil {
+					if err := bgpServer.AddRpki(context.Background(), &bgpapi.AddRpkiRequest{
+						Address:  c.Config.Address,
+						Port:     c.Config.Port,
+						Lifetime: c.Config.RecordLifetime,
+					}); err != nil {
 						log.Fatalf("failed to set rpki config: %s", err)
 					}
 				}
 				for _, c := range newConfig.BmpServers {
-					if err := bgpServer.AddBmp(&c.Config); err != nil {
+					if err := bgpServer.AddBmp(context.Background(), &bgpapi.AddBmpRequest{
+						Address:           c.Config.Address,
+						Port:              c.Config.Port,
+						Policy:            bgpapi.AddBmpRequest_MonitoringPolicy(c.Config.RouteMonitoringPolicy.ToInt()),
+						StatisticsTimeout: int32(c.Config.StatisticsTimeout),
+					}); err != nil {
 						log.Fatalf("failed to set bmp config: %s", err)
+					}
+				}
+				for _, vrf := range newConfig.Vrfs {
+					rd, err := bgp.ParseRouteDistinguisher(vrf.Config.Rd)
+					if err != nil {
+						log.Fatalf("failed to load vrf rd config: %s", err)
+					}
+
+					importRtList, err := marshalRouteTargets(vrf.Config.ImportRtList)
+					if err != nil {
+						log.Fatalf("failed to load vrf import rt config: %s", err)
+					}
+					exportRtList, err := marshalRouteTargets(vrf.Config.ExportRtList)
+					if err != nil {
+						log.Fatalf("failed to load vrf export rt config: %s", err)
+					}
+
+					if err := bgpServer.AddVrf(context.Background(), &bgpapi.AddVrfRequest{
+						Vrf: &bgpapi.Vrf{
+							Name:     vrf.Config.Name,
+							Rd:       apiutil.MarshalRD(rd),
+							Id:       uint32(vrf.Config.Id),
+							ImportRt: importRtList,
+							ExportRt: exportRtList,
+						},
+					}); err != nil {
+						log.Fatalf("failed to set vrf config: %s", err)
 					}
 				}
 				for _, c := range newConfig.MrtDump {
 					if len(c.Config.FileName) == 0 {
 						continue
 					}
-					if err := bgpServer.EnableMrt(&c.Config); err != nil {
+					if err := bgpServer.EnableMrt(context.Background(), &bgpapi.EnableMrtRequest{
+						DumpType:         int32(c.Config.DumpType.ToInt()),
+						Filename:         c.Config.FileName,
+						DumpInterval:     c.Config.DumpInterval,
+						RotationInterval: c.Config.RotationInterval,
+					}); err != nil {
 						log.Fatalf("failed to set mrt config: %s", err)
 					}
 				}
+
 				p := bgpconfig.ConfigSetToRoutingPolicy(newConfig)
-				if err := bgpServer.UpdatePolicy(*p); err != nil {
-					log.Fatalf("failed to set routing policy: %s", err)
+				rp, err := table.NewAPIRoutingPolicyFromConfigStruct(p)
+				if err != nil {
+					log.Warn(err)
+				} else {
+					bgpServer.SetPolicies(context.Background(), &bgpapi.SetPoliciesRequest{
+						DefinedSets: rp.DefinedSets,
+						Policies:    rp.Policies,
+					})
 				}
 
 				added = newConfig.Neighbors
+				addedPg = newConfig.PeerGroups
 				if opts.GracefulRestart {
 					for i, n := range added {
 						if n.GracefulRestart.Config.Enabled {
@@ -232,33 +247,154 @@ func main() {
 				}
 
 			} else {
-//				added, deleted, updated, updatePolicy = bgpconfig.UpdateConfig(c, newConfig)
+				addedPg, deletedPg, updatedPg = bgpconfig.UpdatePeerGroupConfig(c, newConfig)
 				added, deleted, updated = bgpconfig.UpdateNeighborConfig(c, newConfig)
 				updatePolicy = bgpconfig.CheckPolicyDifference(bgpconfig.ConfigSetToRoutingPolicy(c), bgpconfig.ConfigSetToRoutingPolicy(newConfig))
+
 				if updatePolicy {
 					log.Info("Policy config is updated")
 					p := bgpconfig.ConfigSetToRoutingPolicy(newConfig)
-					bgpServer.UpdatePolicy(*p)
+					rp, err := table.NewAPIRoutingPolicyFromConfigStruct(p)
+					if err != nil {
+						log.Warn(err)
+					} else {
+						bgpServer.SetPolicies(context.Background(), &bgpapi.SetPoliciesRequest{
+							DefinedSets: rp.DefinedSets,
+							Policies:    rp.Policies,
+						})
+					}
+				}
+				// global policy update
+				if !newConfig.Global.ApplyPolicy.Config.Equal(&c.Global.ApplyPolicy.Config) {
+					a := newConfig.Global.ApplyPolicy.Config
+					toDefaultTable := func(r bgpconfig.DefaultPolicyType) table.RouteType {
+						var def table.RouteType
+						switch r {
+						case bgpconfig.DEFAULT_POLICY_TYPE_ACCEPT_ROUTE:
+							def = table.ROUTE_TYPE_ACCEPT
+						case bgpconfig.DEFAULT_POLICY_TYPE_REJECT_ROUTE:
+							def = table.ROUTE_TYPE_REJECT
+						}
+						return def
+					}
+					toPolicies := func(r []string) []*table.Policy {
+						p := make([]*table.Policy, 0, len(r))
+						for _, n := range r {
+							p = append(p, &table.Policy{
+								Name: n,
+							})
+						}
+						return p
+					}
+
+					def := toDefaultTable(a.DefaultImportPolicy)
+					ps := toPolicies(a.ImportPolicyList)
+					bgpServer.SetPolicyAssignment(context.Background(), &bgpapi.SetPolicyAssignmentRequest{
+						Assignment: table.NewAPIPolicyAssignmentFromTableStruct(&table.PolicyAssignment{
+							Name:     table.GLOBAL_RIB_NAME,
+							Type:     table.POLICY_DIRECTION_IMPORT,
+							Policies: ps,
+							Default:  def,
+						}),
+					})
+
+					def = toDefaultTable(a.DefaultExportPolicy)
+					ps = toPolicies(a.ExportPolicyList)
+					bgpServer.SetPolicyAssignment(context.Background(), &bgpapi.SetPolicyAssignmentRequest{
+						Assignment: table.NewAPIPolicyAssignmentFromTableStruct(&table.PolicyAssignment{
+							Name:     table.GLOBAL_RIB_NAME,
+							Type:     table.POLICY_DIRECTION_EXPORT,
+							Policies: ps,
+							Default:  def,
+						}),
+					})
+
+					updatePolicy = true
+
 				}
 				c = newConfig
 			}
 
-			for i, p := range added {
-				log.Infof("Peer %v is added", p.Config.NeighborAddress)
-				bgpServer.AddNeighbor(&added[i])
+			for _, pg := range addedPg {
+				log.Infof("PeerGroup %s is added", pg.Config.PeerGroupName)
+				if err := bgpServer.AddPeerGroup(context.Background(), &bgpapi.AddPeerGroupRequest{
+					PeerGroup: bgpconfig.NewPeerGroupFromConfigStruct(&pg),
+				}); err != nil {
+					log.Warn(err)
+				}
 			}
-			for i, p := range deleted {
-				log.Infof("Peer %v is deleted", p.Config.NeighborAddress)
-				bgpServer.DeleteNeighbor(&deleted[i])
+			for _, pg := range deletedPg {
+				log.Infof("PeerGroup %s is deleted", pg.Config.PeerGroupName)
+				if err := bgpServer.DeletePeerGroup(context.Background(), &bgpapi.DeletePeerGroupRequest{
+					Name: pg.Config.PeerGroupName,
+				}); err != nil {
+					log.Warn(err)
+				}
 			}
-			for i, p := range updated {
-				log.Infof("Peer %v is updated", p.Config.NeighborAddress)
-				u, _ := bgpServer.UpdateNeighbor(&updated[i])
-				updatePolicy = updatePolicy || u
+			for _, pg := range updatedPg {
+				log.Infof("PeerGroup %v is updated", pg.State.PeerGroupName)
+				if u, err := bgpServer.UpdatePeerGroup(context.Background(), &bgpapi.UpdatePeerGroupRequest{
+					PeerGroup: bgpconfig.NewPeerGroupFromConfigStruct(&pg),
+				}); err != nil {
+					log.Warn(err)
+				} else {
+					updatePolicy = updatePolicy || u.NeedsSoftResetIn
+				}
+			}
+			for _, pg := range updatedPg {
+				log.Infof("PeerGroup %s is updated", pg.Config.PeerGroupName)
+				if _, err := bgpServer.UpdatePeerGroup(context.Background(), &bgpapi.UpdatePeerGroupRequest{
+					PeerGroup: bgpconfig.NewPeerGroupFromConfigStruct(&pg),
+				}); err != nil {
+					log.Warn(err)
+				}
+			}
+			for _, dn := range newConfig.DynamicNeighbors {
+				log.Infof("Dynamic Neighbor %s is added to PeerGroup %s", dn.Config.Prefix, dn.Config.PeerGroup)
+				if err := bgpServer.AddDynamicNeighbor(context.Background(), &bgpapi.AddDynamicNeighborRequest{
+					DynamicNeighbor: &bgpapi.DynamicNeighbor{
+						Prefix:    dn.Config.Prefix,
+						PeerGroup: dn.Config.PeerGroup,
+					},
+				}); err != nil {
+					log.Warn(err)
+				}
+			}
+			for _, p := range added {
+				log.Infof("Peer %v is added", p.State.NeighborAddress)
+				if err := bgpServer.AddPeer(context.Background(), &bgpapi.AddPeerRequest{
+					Peer: bgpconfig.NewPeerFromConfigStruct(&p),
+				}); err != nil {
+					log.Warn(err)
+				}
+			}
+			for _, p := range deleted {
+				log.Infof("Peer %v is deleted", p.State.NeighborAddress)
+				if err := bgpServer.DeletePeer(context.Background(), &bgpapi.DeletePeerRequest{
+					Address: p.State.NeighborAddress,
+				}); err != nil {
+					log.Warn(err)
+				}
+			}
+			for _, p := range updated {
+				log.Infof("Peer %v is updated", p.State.NeighborAddress)
+				if u, err := bgpServer.UpdatePeer(context.Background(), &bgpapi.UpdatePeerRequest{
+					Peer: bgpconfig.NewPeerFromConfigStruct(&p),
+				}); err != nil {
+					log.Warn(err)
+				} else {
+					updatePolicy = updatePolicy || u.NeedsSoftResetIn
+				}
 			}
 
 			if updatePolicy {
-				bgpServer.SoftResetIn("", bgp.RouteFamily(0))
+				if err := bgpServer.ResetPeer(context.Background(), &bgpapi.ResetPeerRequest{
+					Address:   "",
+					Direction: bgpapi.ResetPeerRequest_IN,
+					Soft:      true,
+				}); err != nil {
+					log.Warn(err)
+				}
 			}
 
 		case newConfig := <-configCh:
@@ -266,7 +402,7 @@ func main() {
 				switch newConfig.Dataplane.Type {
 				case "netlink":
 					log.Debug("new dataplane: netlink")
-					dataplane = netlink.NewDataplane(newConfig, opts.GrpcHost)
+					dataplane = netlink.NewDataplane(newConfig, opts.GrpcHosts)
 					go func() {
 						err := dataplane.Serve()
 						if err != nil {
@@ -288,16 +424,6 @@ func main() {
 			for _, v := range ds {
 				log.Infof("VirtualNetwork %s is deleted", v.RD)
 				dataplane.DeleteVirtualNetwork(v)
-			}
-
-			if fsAgent == nil && newConfig.Iptables.Enabled {
-				fsAgent = iptables.NewFlowspecAgent(opts.GrpcHost, newConfig.Iptables)
-				go func() {
-					err := fsAgent.Serve()
-					if err != nil {
-						log.Errorf("flowspec agent finished with err: %s", err)
-					}
-				}()
 			}
 
 		case sig := <-sigCh:

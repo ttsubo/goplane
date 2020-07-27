@@ -16,8 +16,8 @@
 package config
 
 import (
-	log "github.com/Sirupsen/logrus"
-	bgpconfig "github.com/osrg/gobgp/config"
+	log "github.com/sirupsen/logrus"
+	bgpconfig "github.com/ttsubo/goplane/internal/pkg/config"
 	"github.com/spf13/viper"
 )
 
