@@ -10,14 +10,6 @@
   revision = "1fca145dffbcaa8fe914309b1ec0cfc67500fe61"
 
 [[projects]]
-  digest = "1:f384a8b6f89c502229e9013aa4f89ce5b5b56f09f9a4d601d7f1f026d3564fbf"
-  name = "github.com/coreos/go-iptables"
-  packages = ["iptables"]
-  pruneopts = ""
-  revision = "f901d6c2a4f2a4df092b98c33366dfba1f93d7a0"
-  version = "v0.4.5"
-
-[[projects]]
   digest = "1:0deddd908b6b4b768cfc272c16ee61e7088a60f7fe2f06c547bd3d8e1f8b8e77"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -145,7 +137,7 @@
   revision = "4439b6b2c061e9165cbf684bfad25e1f1d028393"
 
 [[projects]]
-  digest = "1:87196775abd895edd5bf7c44ac7d5081d0253d7a77616331cb5f295fa3d9b3cb"
+  digest = "1:22896624142f7cc8a9b19e9ea089ad0a0808a1d5a936e045cfeb3210c3e8d9b4"
   name = "github.com/osrg/gobgp"
   packages = [
     "api",
@@ -160,8 +152,8 @@
     "pkg/server",
   ]
   pruneopts = ""
-  revision = "4067827a0e086d6af98d0f6c71bec757748c46ba"
-  version = "v2.0.0"
+  revision = "1d8ffa231acf1124a431955deb4d7d692a4b009b"
+  version = "v2.1.0"
 
 [[projects]]
   digest = "1:049b5bee78dfdc9628ee0e557219c41f683e5b06c5a5f20eaba0105ccc586689"
@@ -198,10 +190,7 @@
 [[projects]]
   digest = "1:f1ce6edca10c753e86727ef53ee19c4e83969d259a8dd9eb453bc3e3002d82d5"
   name = "github.com/sirupsen/logrus"
-  packages = [
-    ".",
-    "hooks/syslog",
-  ]
+  packages = ["."]
   pruneopts = ""
   revision = "60c74ad9be0d874af0ab0daef6ab07c5c5911f0d"
   version = "v1.6.0"
@@ -422,21 +411,19 @@
   analyzer-version = 1
   input-imports = [
     "github.com/armon/go-radix",
-    "github.com/coreos/go-iptables/iptables",
     "github.com/dgryski/go-farm",
+    "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes",
+    "github.com/golang/protobuf/ptypes/any",
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/jessevdk/go-flags",
     "github.com/osrg/gobgp/api",
-    "github.com/osrg/gobgp/internal/pkg/apiutil",
     "github.com/osrg/gobgp/internal/pkg/config",
-    "github.com/osrg/gobgp/internal/pkg/zebra",
     "github.com/osrg/gobgp/pkg/packet/bgp",
     "github.com/osrg/gobgp/pkg/packet/bmp",
     "github.com/osrg/gobgp/pkg/packet/rtr",
     "github.com/osrg/gobgp/pkg/server",
     "github.com/sirupsen/logrus",
-    "github.com/sirupsen/logrus/hooks/syslog",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",

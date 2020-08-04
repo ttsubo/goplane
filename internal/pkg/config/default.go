@@ -8,11 +8,11 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/ttsubo/goplane/internal/pkg/zebra"
 	"github.com/osrg/gobgp/pkg/packet/bgp"
 	"github.com/osrg/gobgp/pkg/packet/bmp"
 	"github.com/osrg/gobgp/pkg/packet/rtr"
 	"github.com/spf13/viper"
+	"github.com/ttsubo/goplane/internal/pkg/zebra"
 )
 
 const (

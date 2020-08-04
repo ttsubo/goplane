@@ -24,8 +24,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/ttsubo/goplane/internal/pkg/config"
 	"github.com/osrg/gobgp/pkg/packet/bgp"
+	"github.com/ttsubo/goplane/internal/pkg/config"
 
 	log "github.com/sirupsen/logrus"
 )
