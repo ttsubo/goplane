@@ -65,6 +65,14 @@
   revision = "748d386b5c1ea99658fd69fe9f03991ce86a90c1"
 
 [[projects]]
+  digest = "1:ad92aa49f34cbc3546063c7eb2cabb55ee2278b72842eda80e2a20a8a06a8d73"
+  name = "github.com/google/uuid"
+  packages = ["."]
+  pruneopts = ""
+  revision = ""
+  version = "v1.1.1"
+
+[[projects]]
   branch = "master"
   digest = "1:54154e6dbc8ce9438f24131cabfeaada1582b35fcdb2ff8457b77a4b1b9a13af"
   name = "github.com/hashicorp/hcl"
@@ -137,7 +145,7 @@
   revision = "4439b6b2c061e9165cbf684bfad25e1f1d028393"
 
 [[projects]]
-  digest = "1:22896624142f7cc8a9b19e9ea089ad0a0808a1d5a936e045cfeb3210c3e8d9b4"
+  digest = "1:b2d5f37afcd3d3f3aeeef3f2768b9c8e51218094852b7343c43f4f26f7b56352"
   name = "github.com/osrg/gobgp"
   packages = [
     "api",
@@ -152,8 +160,8 @@
     "pkg/server",
   ]
   pruneopts = ""
-  revision = "fd6618fed499d7abe8ecc88427d47448b538a94e"
-  version = "v2.4.0"
+  revision = "48f5e25804e14d0239c2b0a2766933de975e29d7"
+  version = "v2.5.0"
 
 [[projects]]
   digest = "1:049b5bee78dfdc9628ee0e557219c41f683e5b06c5a5f20eaba0105ccc586689"
@@ -178,14 +186,6 @@
   pruneopts = ""
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
   version = "v1.0.0"
-
-[[projects]]
-  branch = "master"
-  digest = "1:d4fec58ef1540ef89350bf22c25e013a9f9f57de12180d9067a1e25a5925d99b"
-  name = "github.com/satori/go.uuid"
-  packages = ["."]
-  pruneopts = ""
-  revision = "36e9d2ebbde5e3f13ab2e25625fd453271d6522e"
 
 [[projects]]
   digest = "1:f1ce6edca10c753e86727ef53ee19c4e83969d259a8dd9eb453bc3e3002d82d5"

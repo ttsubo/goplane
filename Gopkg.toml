@@ -49,8 +49,8 @@
   name = "github.com/kr/pretty"
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/satori/go.uuid"
+  name = "github.com/google/uuid"
+  version = "v1.1.1"
 
 [[constraint]]
   name = "github.com/sirupsen/logrus"
