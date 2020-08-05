@@ -53,6 +53,7 @@ func (adj *AdjRib) Update(pathList []*Path) {
 					adj.accepted[rf]--
 				}
 			}
+			path.SetDropped(true)
 		} else {
 			if found {
 				if old.IsAsLooped() && !path.IsAsLooped() {
@@ -106,13 +107,20 @@ func (adj *AdjRib) Accepted(rfList []bgp.RouteFamily) int {
 	return count
 }
 
-func (adj *AdjRib) Drop(rfList []bgp.RouteFamily) {
+func (adj *AdjRib) Drop(rfList []bgp.RouteFamily) []*Path {
+	l := make([]*Path, 0, adj.Count(rfList))
 	for _, rf := range rfList {
 		if _, ok := adj.table[rf]; ok {
+			for _, p := range adj.table[rf] {
+				w := p.Clone(true)
+				w.SetDropped(true)
+				l = append(l, w)
+			}
 			adj.table[rf] = make(map[string]*Path)
 			adj.accepted[rf] = 0
 		}
 	}
+	return l
 }
 
 func (adj *AdjRib) DropStale(rfList []bgp.RouteFamily) []*Path {
@@ -125,7 +133,9 @@ func (adj *AdjRib) DropStale(rfList []bgp.RouteFamily) []*Path {
 					if !p.IsAsLooped() {
 						adj.accepted[rf]--
 					}
-					pathList = append(pathList, p.Clone(true))
+					w := p.Clone(true)
+					w.SetDropped(true)
+					pathList = append(pathList, w)
 				}
 			}
 		}

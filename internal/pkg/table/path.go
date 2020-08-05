@@ -89,7 +89,6 @@ type originInfo struct {
 	nlri               bgp.AddrPrefixInterface
 	source             *PeerInfo
 	timestamp          int64
-	validation         *Validation
 	noImplicitWithdraw bool
 	isFromExternal     bool
 	eor                bool
@@ -139,6 +138,8 @@ type Path struct {
 	dels      []bgp.BGPAttrType
 	attrsHash uint32
 	aslooped  bool
+	// doesn't exist in the adj
+	dropped bool
 
 	// For BGP Nexthop Tracking, this field shows if nexthop is invalidated by IGP.
 	IsNexthopInvalid bool
@@ -357,22 +358,6 @@ func (path *Path) NoImplicitWithdraw() bool {
 	return path.OriginInfo().noImplicitWithdraw
 }
 
-func (path *Path) Validation() *Validation {
-	return path.OriginInfo().validation
-}
-
-func (path *Path) ValidationStatus() config.RpkiValidationResultType {
-	if v := path.OriginInfo().validation; v != nil {
-		return v.Status
-	} else {
-		return config.RPKI_VALIDATION_RESULT_TYPE_NONE
-	}
-}
-
-func (path *Path) SetValidation(v *Validation) {
-	path.OriginInfo().validation = v
-}
-
 func (path *Path) IsFromExternal() bool {
 	return path.OriginInfo().isFromExternal
 }
@@ -403,6 +388,14 @@ func (path *Path) IsAsLooped() bool {
 
 func (path *Path) SetAsLooped(y bool) {
 	path.aslooped = y
+}
+
+func (path *Path) IsDropped() bool {
+	return path.dropped
+}
+
+func (path *Path) SetDropped(y bool) {
+	path.dropped = y
 }
 
 func (path *Path) IsLLGRStale() bool {
@@ -1024,7 +1017,6 @@ func (path *Path) MarshalJSON() ([]byte, error) {
 		PathAttrs:  path.GetPathAttrs(),
 		Age:        path.GetTimestamp().Unix(),
 		Withdrawal: path.IsWithdraw,
-		Validation: string(path.ValidationStatus()),
 		SourceID:   path.GetSource().ID,
 		NeighborIP: path.GetSource().Address,
 		Stale:      path.IsStale(),
@@ -1152,7 +1144,6 @@ func (p *Path) ToGlobal(vrf *Vrf) *Path {
 	path.SetExtCommunities(vrf.ExportRt, false)
 	path.delPathAttr(bgp.BGP_ATTR_TYPE_NEXT_HOP)
 	path.setPathAttr(bgp.NewPathAttributeMpReachNLRI(nh.String(), []bgp.AddrPrefixInterface{nlri}))
-	path.IsNexthopInvalid = p.IsNexthopInvalid
 	return path
 }
 

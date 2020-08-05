@@ -17,6 +17,7 @@ package table
 
 import (
 	"fmt"
+	"math/bits"
 	"net"
 	"strings"
 	"unsafe"
@@ -117,15 +118,14 @@ func (t *Table) deleteRTCPathsByVrf(vrf *Vrf, vrfs map[string]*Vrf) []*Path {
 	return pathList
 }
 
-func (t *Table) deleteDestByNlri(nlri bgp.AddrPrefixInterface) *Destination {
-	if dst := t.GetDestination(nlri); dst != nil {
-		t.deleteDest(dst)
-		return dst
-	}
-	return nil
-}
-
 func (t *Table) deleteDest(dest *Destination) {
+	count := 0
+	for _, v := range dest.localIdMap.bitmap {
+		count += bits.OnesCount64(v)
+	}
+	if len(dest.localIdMap.bitmap) != 0 && count != 1 {
+		return
+	}
 	destinations := t.GetDestinations()
 	delete(destinations, t.tableKey(dest.GetNlri()))
 	if len(destinations) == 0 {
