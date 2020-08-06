@@ -175,7 +175,7 @@ func (t *Table) validatePath(path *Path) {
 	}
 }
 
-func (t *Table) getOrCreateDest(nlri bgp.AddrPrefixInterface) *Destination {
+func (t *Table) getOrCreateDest(nlri bgp.AddrPrefixInterface, size int) *Destination {
 	dest := t.GetDestination(nlri)
 	// If destination for given prefix does not exist we create it.
 	if dest == nil {
@@ -183,7 +183,7 @@ func (t *Table) getOrCreateDest(nlri bgp.AddrPrefixInterface) *Destination {
 			"Topic": "Table",
 			"Nlri":  nlri,
 		}).Debugf("create Destination")
-		dest = NewDestination(nlri, 64)
+		dest = NewDestination(nlri, size)
 		t.setDestination(dest)
 	}
 	return dest
@@ -438,10 +438,15 @@ type TableInfo struct {
 func (t *Table) Info(id string, as uint32) *TableInfo {
 	var numD, numP int
 	for _, d := range t.destinations {
-		ps := d.GetKnownPathList(id, as)
-		if len(ps) > 0 {
-			numD += 1
-			numP += len(ps)
+		n := 0
+		if id == GLOBAL_RIB_NAME {
+			n = len(d.knownPathList)
+		} else {
+			n = len(d.GetKnownPathList(id, as))
+		}
+		if n != 0 {
+			numD++
+			numP += n
 		}
 	}
 	return &TableInfo{
