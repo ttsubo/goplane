@@ -214,7 +214,7 @@ func isAfiSafiChanged(x, y []AfiSafi) bool {
 		m[string(e.Config.AfiSafiName)] = x[i]
 	}
 	for _, e := range y {
-		if v, ok := m[string(e.Config.AfiSafiName)]; !ok || !v.Config.Equal(&e.Config) || !v.AddPaths.Config.Equal(&e.AddPaths.Config) {
+		if v, ok := m[string(e.Config.AfiSafiName)]; !ok || !v.Config.Equal(&e.Config) || !v.AddPaths.Config.Equal(&e.AddPaths.Config) || !v.MpGracefulRestart.Config.Equal(&e.MpGracefulRestart.Config) {
 			return true
 		}
 	}
@@ -225,6 +225,7 @@ func (n *Neighbor) NeedsResendOpenMessage(new *Neighbor) bool {
 	return !n.Config.Equal(&new.Config) ||
 		!n.Transport.Config.Equal(&new.Transport.Config) ||
 		!n.AddPaths.Config.Equal(&new.AddPaths.Config) ||
+		!n.AsPathOptions.Config.Equal(&new.AsPathOptions.Config) ||
 		!n.GracefulRestart.Config.Equal(&new.GracefulRestart.Config) ||
 		isAfiSafiChanged(n.AfiSafis, new.AfiSafis)
 }
@@ -505,9 +506,10 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 		},
 		Timers: &api.Timers{
 			Config: &api.TimersConfig{
-				ConnectRetry:      uint64(timer.Config.ConnectRetry),
-				HoldTime:          uint64(timer.Config.HoldTime),
-				KeepaliveInterval: uint64(timer.Config.KeepaliveInterval),
+				ConnectRetry:           uint64(timer.Config.ConnectRetry),
+				HoldTime:               uint64(timer.Config.HoldTime),
+				KeepaliveInterval:      uint64(timer.Config.KeepaliveInterval),
+				IdleHoldTimeAfterReset: uint64(timer.Config.IdleHoldTimeAfterReset),
 			},
 			State: &api.TimersState{
 				KeepaliveInterval:  uint64(timer.State.KeepaliveInterval),
@@ -570,11 +572,16 @@ func NewPeerGroupFromConfigStruct(pconf *PeerGroup) *api.PeerGroup {
 			TotalPaths:    s.TotalPaths,
 			TotalPrefixes: s.TotalPrefixes,
 		},
+		EbgpMultihop: &api.EbgpMultihop{
+			Enabled:     pconf.EbgpMultihop.Config.Enabled,
+			MultihopTtl: uint32(pconf.EbgpMultihop.Config.MultihopTtl),
+		},
 		Timers: &api.Timers{
 			Config: &api.TimersConfig{
-				ConnectRetry:      uint64(timer.Config.ConnectRetry),
-				HoldTime:          uint64(timer.Config.HoldTime),
-				KeepaliveInterval: uint64(timer.Config.KeepaliveInterval),
+				ConnectRetry:           uint64(timer.Config.ConnectRetry),
+				HoldTime:               uint64(timer.Config.HoldTime),
+				KeepaliveInterval:      uint64(timer.Config.KeepaliveInterval),
+				IdleHoldTimeAfterReset: uint64(timer.Config.IdleHoldTimeAfterReset),
 			},
 			State: &api.TimersState{
 				KeepaliveInterval:  uint64(timer.State.KeepaliveInterval),

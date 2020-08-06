@@ -2,14 +2,6 @@
 
 
 [[projects]]
-  branch = "master"
-  digest = "1:2a1e6af234d7de1ccf4504f397cf7cfa82922ee59b29252e3c34cb38d0b91989"
-  name = "github.com/armon/go-radix"
-  packages = ["."]
-  pruneopts = ""
-  revision = "1fca145dffbcaa8fe914309b1ec0cfc67500fe61"
-
-[[projects]]
   digest = "1:0deddd908b6b4b768cfc272c16ee61e7088a60f7fe2f06c547bd3d8e1f8b8e77"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -99,6 +91,14 @@
   version = "v1.3.0"
 
 [[projects]]
+  digest = "1:b5c07a9bdba85c8a34fc0eeb8e55da806aac343bc2c99602ec96eb38d4250a15"
+  name = "github.com/k-sone/critbitgo"
+  packages = ["."]
+  pruneopts = ""
+  revision = "4536a49cdb164af1fc76e276ebeaf004338d2044"
+  version = "v1.4.0"
+
+[[projects]]
   digest = "1:bc1620e5da7b137ec9b19834fedd16ad491c68c29fa2bf075b0eeec9c447556d"
   name = "github.com/konsorten/go-windows-terminal-sequences"
   packages = ["."]
@@ -145,7 +145,7 @@
   revision = "4439b6b2c061e9165cbf684bfad25e1f1d028393"
 
 [[projects]]
-  digest = "1:b2d5f37afcd3d3f3aeeef3f2768b9c8e51218094852b7343c43f4f26f7b56352"
+  digest = "1:881462949ceb59576316876e40301ea974b762998ef5d2837fe80b9920bc989c"
   name = "github.com/osrg/gobgp"
   packages = [
     "api",
@@ -160,8 +160,8 @@
     "pkg/server",
   ]
   pruneopts = ""
-  revision = "93beafeec5ec667602afe506f2692db81344d5a7"
-  version = "v2.9.0"
+  revision = "a42a1a5f6bf0d0aa8dac26d32907b94b7cdcc6e1"
+  version = "v2.10.0"
 
 [[projects]]
   digest = "1:049b5bee78dfdc9628ee0e557219c41f683e5b06c5a5f20eaba0105ccc586689"
@@ -410,13 +410,13 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/armon/go-radix",
     "github.com/dgryski/go-farm",
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/any",
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/jessevdk/go-flags",
+    "github.com/k-sone/critbitgo",
     "github.com/osrg/gobgp/api",
     "github.com/osrg/gobgp/internal/pkg/config",
     "github.com/osrg/gobgp/pkg/packet/bgp",

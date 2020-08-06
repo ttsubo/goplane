@@ -137,7 +137,7 @@ type Path struct {
 	pathAttrs []bgp.PathAttributeInterface
 	dels      []bgp.BGPAttrType
 	attrsHash uint32
-	aslooped  bool
+	rejected  bool
 	// doesn't exist in the adj
 	dropped bool
 
@@ -382,12 +382,12 @@ func (path *Path) IsStale() bool {
 	return path.OriginInfo().stale
 }
 
-func (path *Path) IsAsLooped() bool {
-	return path.aslooped
+func (path *Path) IsRejected() bool {
+	return path.rejected
 }
 
-func (path *Path) SetAsLooped(y bool) {
-	path.aslooped = y
+func (path *Path) SetRejected(y bool) {
+	path.rejected = y
 }
 
 func (path *Path) IsDropped() bool {
@@ -396,6 +396,15 @@ func (path *Path) IsDropped() bool {
 
 func (path *Path) SetDropped(y bool) {
 	path.dropped = y
+}
+
+func (path *Path) HasNoLLGR() bool {
+	for _, c := range path.GetCommunities() {
+		if c == uint32(bgp.COMMUNITY_NO_LLGR) {
+			return true
+		}
+	}
+	return false
 }
 
 func (path *Path) IsLLGRStale() bool {
@@ -1207,4 +1216,30 @@ func (p *Path) SetHash(v uint32) {
 
 func (p *Path) GetHash() uint32 {
 	return p.attrsHash
+}
+
+func nlriToIPNet(nlri bgp.AddrPrefixInterface) *net.IPNet {
+	switch T := nlri.(type) {
+	case *bgp.IPAddrPrefix:
+		return &net.IPNet{
+			IP:   net.IP(T.Prefix.To4()),
+			Mask: net.CIDRMask(int(T.Length), 32),
+		}
+	case *bgp.IPv6AddrPrefix:
+		return &net.IPNet{
+			IP:   net.IP(T.Prefix.To16()),
+			Mask: net.CIDRMask(int(T.Length), 128),
+		}
+	case *bgp.LabeledIPAddrPrefix:
+		return &net.IPNet{
+			IP:   net.IP(T.Prefix.To4()),
+			Mask: net.CIDRMask(int(T.Length), 32),
+		}
+	case *bgp.LabeledIPv6AddrPrefix:
+		return &net.IPNet{
+			IP:   net.IP(T.Prefix.To4()),
+			Mask: net.CIDRMask(int(T.Length), 128),
+		}
+	}
+	return nil
 }
