@@ -160,8 +160,8 @@
     "pkg/server",
   ]
   pruneopts = ""
-  revision = "b9c00dd59188d3377f6c64b30df2d4f03d6aebcc"
-  version = "v2.18.0"
+  revision = "c6f0eba8f4d8544ede83c70d6b5f07560ff6c7ce"
+  version = "v2.19.0"
 
 [[projects]]
   digest = "1:049b5bee78dfdc9628ee0e557219c41f683e5b06c5a5f20eaba0105ccc586689"
