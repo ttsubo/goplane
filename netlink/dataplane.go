@@ -23,6 +23,8 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	api "github.com/osrg/gobgp/api"
 	"github.com/osrg/gobgp/pkg/packet/bgp"
 	log "github.com/sirupsen/logrus"
@@ -30,25 +32,24 @@ import (
 	"github.com/ttsubo/goplane/internal/pkg/apiutil"
 	bgpconfig "github.com/ttsubo/goplane/internal/pkg/config"
 	"github.com/ttsubo/goplane/internal/pkg/table"
+	bgpserver "github.com/ttsubo/goplane/pkg/server"
 	"github.com/vishvananda/netlink"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes"
 	"gopkg.in/tomb.v2"
 )
 
 type Dataplane struct {
 	t         tomb.Tomb
 	config    *config.Config
-	modRibCh  chan []*api.Path
+	modRibCh  chan []*table.Path
 	advPathCh chan *table.Path
 	vnMap     map[string]*VirtualNetwork
 	addVnCh   chan config.VirtualNetwork
 	delVnCh   chan config.VirtualNetwork
 	grpcHost  string
+	bgpServer *bgpserver.BgpServer
 	client    api.GobgpApiClient
 	routerId  string
 	localAS   uint32
-	paths     map[string]*api.Path
 }
 
 func NewClient(target string, ctx context.Context) (api.GobgpApiClient, context.CancelFunc, error) {
@@ -76,11 +77,11 @@ func toPathAPI(binNlri []byte, binPattrs [][]byte, anyNlri *any.Any, anyPattrs [
 	nlri := path.GetNlri()
 	t, _ := ptypes.TimestampProto(path.GetTimestamp())
 	p := &api.Path{
-		Nlri:               anyNlri,
-		Pattrs:             anyPattrs,
-		Age:                t,
-		IsWithdraw:         path.IsWithdraw,
-//		Validation:         newValidationFromTableStruct(v),
+		Nlri:       anyNlri,
+		Pattrs:     anyPattrs,
+		Age:        t,
+		IsWithdraw: path.IsWithdraw,
+		//		Validation:         newValidationFromTableStruct(v),
 		Family:             &api.Family{Afi: api.Family_Afi(nlri.AFI()), Safi: api.Family_Safi(nlri.SAFI())},
 		Stale:              path.IsStale(),
 		IsFromExternal:     path.IsFromExternal(),
@@ -168,37 +169,34 @@ func (d *Dataplane) getNexthop(path *api.Path) (int, net.IP, int) {
 	return neigh.LinkIndex, nh, flags
 }
 
-func (d *Dataplane) modRib(paths []*api.Path) error {
+func (d *Dataplane) modRib(paths []*table.Path) error {
 	if len(paths) == 0 {
 		return nil
 	}
 	p := paths[0]
 
-	nlri, _ := apiutil.GetNativeNlri(p)
+	nlri := p.GetNlri()
 	dst, _ := netlink.ParseIPNet(nlri.String())
 	route := &netlink.Route{
 		Dst: dst,
 		Src: net.ParseIP(d.routerId),
 	}
-	if d.paths[nlri.String()] != nil {
-		paths = append(paths, d.paths[nlri.String()])
-	}
 
 	if len(paths) == 1 {
-		if p.NeighborIp == "<nil>"  {
+		if toPathApi(p, nil).NeighborIp == "<nil>" {
 			return nil
 		}
-		link, gw, flags := d.getNexthop(p)
+		link, gw, flags := d.getNexthop(toPathApi(p, nil))
 		route.Gw = gw
 		route.LinkIndex = link
 		route.Flags = flags
 	} else {
 		mp := make([]*netlink.NexthopInfo, 0, len(paths))
 		for _, path := range paths {
-			if path.NeighborIp == "<nil>"  {
+			if toPathApi(path, nil).NeighborIp == "<nil>" {
 				continue
 			}
-			link, gw, flags := d.getNexthop(path)
+			link, gw, flags := d.getNexthop(toPathApi(path, nil))
 			mp = append(mp, &netlink.NexthopInfo{
 				Gw:        gw,
 				LinkIndex: link,
@@ -215,30 +213,49 @@ func (d *Dataplane) modRib(paths []*api.Path) error {
 		return netlink.RouteDel(route)
 	}
 	log.Info("add route:", route)
-	d.paths[nlri.String()] = p
 	return netlink.RouteReplace(route)
 }
 
 func (d *Dataplane) monitorBest() error {
+	w := d.bgpServer.Watch(bgpserver.WatchBestPath(true))
 
-	watcher, err := d.client.MonitorTable(context.Background(), &api.MonitorTableRequest{
-		TableType: api.TableType_GLOBAL,
-		Family: &api.Family{
-			Afi:  api.Family_AFI_IP,
-			Safi: api.Family_SAFI_UNICAST,
-		},
-		Current: true,
-	})
-	if err != nil {
-		return err
-	}
-	for {
-		r, err := watcher.Recv()
-		if err != nil {
-			return err
+	go func() {
+		defer func() {
+			w.Stop()
+		}()
+
+		family := bgp.AfiSafiToRouteFamily(bgp.AFI_IP, bgp.SAFI_UNICAST)
+		exitCurrentLoop := false
+		for {
+			ev := <-w.Event()
+			var paths []*table.Path
+			switch msg := ev.(type) {
+			case *bgpserver.WatchEventBestPath:
+				if len(msg.MultiPathList) > 0 {
+					l := make([]*table.Path, 0)
+					for _, p := range msg.MultiPathList {
+						l = append(l, p...)
+					}
+					paths = l
+				} else {
+					paths = msg.PathList
+				}
+			case *bgpserver.WatchEventUpdate:
+				paths = msg.PathList
+			}
+			for _, path := range paths {
+				if path == nil || family != path.GetRouteFamily() {
+					exitCurrentLoop = true
+					break
+				}
+			}
+			if exitCurrentLoop == false {
+				d.modRibCh <- paths
+			} else {
+				exitCurrentLoop = false
+			}
 		}
-		d.modRibCh <- []*api.Path{r.Path}
-	}
+	}()
 	return nil
 }
 
@@ -302,7 +319,8 @@ func (d *Dataplane) Serve() error {
 		bgp.NewPathAttributeNextHop("0.0.0.0"),
 		bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_IGP),
 	}, time.Now(), false)
-	d.t.Go(d.monitorBest)
+	time.Sleep(time.Second * 10)
+	go d.monitorBest()
 
 	for {
 		select {
@@ -340,8 +358,8 @@ func (d *Dataplane) addPath(vrfID string, pathList []*table.Path) ([]byte, error
 	for _, path := range pathList {
 		r, err := d.client.AddPath(context.Background(), &api.AddPathRequest{
 			TableType: resource,
-			VrfId:    vrfID,
-			Path:     toPathApi(path, nil),
+			VrfId:     vrfID,
+			Path:      toPathApi(path, nil),
 		})
 		if err != nil {
 			return nil, err
@@ -359,8 +377,8 @@ func (d *Dataplane) GetServer() *bgpconfig.Global {
 	g := d.config.BGP.Global.Config
 	return &bgpconfig.Global{
 		Config: bgpconfig.GlobalConfig{
-			As:               g.As,
-			RouterId:         g.RouterId,
+			As:       g.As,
+			RouterId: g.RouterId,
 		},
 	}
 }
@@ -375,8 +393,8 @@ func (d *Dataplane) DeleteVirtualNetwork(c config.VirtualNetwork) error {
 	return nil
 }
 
-func NewDataplane(c *config.Config, grpcHost string) *Dataplane {
-	modRibCh := make(chan []*api.Path, 16)
+func NewDataplane(c *config.Config, grpcHost string, bgpServer *bgpserver.BgpServer) *Dataplane {
+	modRibCh := make(chan []*table.Path, 16)
 	advPathCh := make(chan *table.Path, 16)
 	addVnCh := make(chan config.VirtualNetwork)
 	delVnCh := make(chan config.VirtualNetwork)
@@ -388,6 +406,6 @@ func NewDataplane(c *config.Config, grpcHost string) *Dataplane {
 		delVnCh:   delVnCh,
 		vnMap:     make(map[string]*VirtualNetwork),
 		grpcHost:  grpcHost,
-		paths:     make(map[string]*api.Path),
+		bgpServer: bgpServer,
 	}
 }

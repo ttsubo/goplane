@@ -22,20 +22,20 @@ import (
 	"runtime"
 	"syscall"
 
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/jessevdk/go-flags"
-	"google.golang.org/grpc"
+	log "github.com/sirupsen/logrus"
 	"github.com/ttsubo/goplane/config"
-	"github.com/ttsubo/goplane/netlink"
 	"github.com/ttsubo/goplane/internal/pkg/apiutil"
 	"github.com/ttsubo/goplane/internal/pkg/table"
+	"github.com/ttsubo/goplane/netlink"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 
-	"github.com/osrg/gobgp/pkg/packet/bgp"
-	bgpserver "github.com/osrg/gobgp/pkg/server"
-	bgpconfig "github.com/ttsubo/goplane/internal/pkg/config"
 	bgpapi "github.com/osrg/gobgp/api"
+	"github.com/osrg/gobgp/pkg/packet/bgp"
+	bgpconfig "github.com/ttsubo/goplane/internal/pkg/config"
+	bgpserver "github.com/ttsubo/goplane/pkg/server"
 )
 
 type Dataplaner interface {
@@ -63,10 +63,10 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGHUP)
 
 	var opts struct {
-		ConfigFile string `short:"f" long:"config-file" description:"specifying a config file"`
-		ConfigType string `short:"t" long:"config-type" description:"specifying config type (toml, yaml, json)" default:"toml"`
-		LogLevel   string `short:"l" long:"log-level" description:"specifying log level"`
-		LogPlain   bool   `short:"p" long:"log-plain" description:"use plain format for logging (json by default)"`
+		ConfigFile      string `short:"f" long:"config-file" description:"specifying a config file"`
+		ConfigType      string `short:"t" long:"config-type" description:"specifying config type (toml, yaml, json)" default:"toml"`
+		LogLevel        string `short:"l" long:"log-level" description:"specifying log level"`
+		LogPlain        bool   `short:"p" long:"log-plain" description:"use plain format for logging (json by default)"`
 		DisableStdlog   bool   `long:"disable-stdlog" description:"disable standard logging"`
 		GrpcHosts       string `long:"api-hosts" description:"specify the hosts that gobgpd listens on" default:":50051"`
 		Remote          bool   `short:"r" long:"remote-gobgp" description:"remote gobgp mode"`
@@ -109,8 +109,6 @@ func main() {
 	configCh := make(chan *config.Config)
 	bgpConfigCh := make(chan *bgpconfig.BgpConfigSet)
 	reloadCh := make(chan bool)
-	go config.ReadConfigfileServe(opts.ConfigFile, opts.ConfigType, configCh, bgpConfigCh, reloadCh)
-	reloadCh <- true
 
 	var bgpServer *bgpserver.BgpServer
 	maxSize := 256 << 20
@@ -120,6 +118,8 @@ func main() {
 		bgpServer = bgpserver.NewBgpServer(bgpserver.GrpcListenAddress(opts.GrpcHosts), bgpserver.GrpcOption(grpcOpts))
 		go bgpServer.Serve()
 	}
+	go config.ReadConfigfileServe(opts.ConfigFile, opts.ConfigType, configCh, bgpConfigCh, reloadCh)
+	reloadCh <- true
 
 	var dataplane Dataplaner
 	var d *config.Dataplane
@@ -402,7 +402,7 @@ func main() {
 				switch newConfig.Dataplane.Type {
 				case "netlink":
 					log.Debug("new dataplane: netlink")
-					dataplane = netlink.NewDataplane(newConfig, opts.GrpcHosts)
+					dataplane = netlink.NewDataplane(newConfig, opts.GrpcHosts, bgpServer)
 					go func() {
 						err := dataplane.Serve()
 						if err != nil {

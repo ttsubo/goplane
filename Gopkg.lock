@@ -145,7 +145,7 @@
   revision = "4439b6b2c061e9165cbf684bfad25e1f1d028393"
 
 [[projects]]
-  digest = "1:881462949ceb59576316876e40301ea974b762998ef5d2837fe80b9920bc989c"
+  digest = "1:ad10d06a487141bd67b14c3f36bfd13a0f0c474d314b97f192ab79acbbcc8dc0"
   name = "github.com/osrg/gobgp"
   packages = [
     "api",
@@ -157,7 +157,6 @@
     "pkg/packet/bmp",
     "pkg/packet/mrt",
     "pkg/packet/rtr",
-    "pkg/server",
   ]
   pruneopts = ""
   revision = "c6f0eba8f4d8544ede83c70d6b5f07560ff6c7ce"
@@ -411,18 +410,24 @@
   analyzer-version = 1
   input-imports = [
     "github.com/dgryski/go-farm",
+    "github.com/eapache/channels",
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/any",
+    "github.com/golang/protobuf/ptypes/empty",
     "github.com/golang/protobuf/ptypes/timestamp",
+    "github.com/google/uuid",
     "github.com/jessevdk/go-flags",
     "github.com/k-sone/critbitgo",
     "github.com/osrg/gobgp/api",
+    "github.com/osrg/gobgp/internal/pkg/apiutil",
     "github.com/osrg/gobgp/internal/pkg/config",
+    "github.com/osrg/gobgp/internal/pkg/table",
+    "github.com/osrg/gobgp/internal/pkg/zebra",
     "github.com/osrg/gobgp/pkg/packet/bgp",
     "github.com/osrg/gobgp/pkg/packet/bmp",
+    "github.com/osrg/gobgp/pkg/packet/mrt",
     "github.com/osrg/gobgp/pkg/packet/rtr",
-    "github.com/osrg/gobgp/pkg/server",
     "github.com/sirupsen/logrus",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
