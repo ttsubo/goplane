@@ -1,7 +1,9 @@
 nose
-toml
+toml==0.10.0
+flake8
 netaddr
 docker-py
 nsenter
 pyroute2
-fabric
+fabric3
+pyOpenSSL==19.1.0
