@@ -9,20 +9,30 @@ This demo shows l2-vpn construction using [BGP/EVPN](https://tools.ietf.org/html
 - python, pip
 
 ## How to run
-you only need to type 3 commands to play (tested in Ubuntu trusty and xenial).
+you only need to type 5 steps to play (tested in Ubuntu xenial).
 
-1. install dependent python packages
+1. Change iptables for Bridge Netfilter
+
+     ```
+     $ sudo iptables -I FORWARD -m physdev --physdev-is-bridged -j ACCEPT
+     ```
+2. install dependent python packages
     
      ```
-     $ export GOPLANE=$GOPATH/src/github.com/osrg/goplane
-     $ pip install -r $GOPLANE/test/pip-requires.txt
+     $ export GOPLANE=$GOPATH/src/github.com/ttsubo/goplane
+     $ sudo pip install -r $GOPLANE/test/pip-requires.txt
      ```
-2. build goplane docker image
+3. build goplane docker image
     
      ```
-     $ docker build -t osrg/goplane $GOPLANE
+     $ docker build -t ttsubo/goplane $GOPLANE
      ```
-3. run and play! (this may take time to finish)
+4. Fetch gobgp docker image
+
+     ```
+     $ docker pull osrg/gobgp:latest
+     ```
+5. run and play! (this may take time to finish)
     
      ```
      $ sudo -E PYTHONPATH=$GOPLANE/test python $GOPLANE/test/netlink/evpn_vxlan_test.py
@@ -51,9 +61,9 @@ you can check peering state by
 
 ```
 $ docker exec -it g1 gobgp neighbor
-Peer            AS  Up/Down State       |#Advertised Received Accepted
-192.168.10.3 65002 00:00:26 Establ      |         16        5        5
-192.168.10.4 65003 00:00:26 Establ      |         13        8        8
+Peer            AS  Up/Down State       |#Received  Accepted
+192.168.10.3 65000 00:00:43 Establ      |        3         3
+192.168.10.4 65000 00:00:42 Establ      |        4         4
 ```
 
 For the full documentation of gobgp command, see [gobgp](https://github.com/osrg/gobgp/blob/master/docs/sources/cli-command-syntax.md).
@@ -81,16 +91,26 @@ Let's try to ping around!
 
 ```
 $ docker exec -it h1 ping 10.10.10.3
-PING 10.10.10.3 (10.10.10.3): 56 data bytes
-64 bytes from 10.10.10.3: icmp_seq=0 ttl=64 time=1.314 ms
-64 bytes from 10.10.10.3: icmp_seq=1 ttl=64 time=0.313 ms
+PING 10.10.10.3 (10.10.10.3) 56(84) bytes of data.
+64 bytes from 10.10.10.3: icmp_seq=1 ttl=64 time=0.224 ms
+64 bytes from 10.10.10.3: icmp_seq=2 ttl=64 time=0.320 ms
+64 bytes from 10.10.10.3: icmp_seq=3 ttl=64 time=0.331 ms
+^C
+--- 10.10.10.3 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 1998ms
+rtt min/avg/max/mdev = 0.224/0.291/0.331/0.051 ms
 ```
 
 ```
 $ docker exec -it j1 ping 10.10.10.2
-PING 10.10.10.2 (10.10.10.2): 56 data bytes
-64 bytes from 10.10.10.2: icmp_seq=0 ttl=64 time=1.227 ms
-64 bytes from 10.10.10.2: icmp_seq=1 ttl=64 time=0.358 ms
+PING 10.10.10.2 (10.10.10.2) 56(84) bytes of data.
+64 bytes from 10.10.10.2: icmp_seq=1 ttl=64 time=1000 ms
+64 bytes from 10.10.10.2: icmp_seq=2 ttl=64 time=1.31 ms
+64 bytes from 10.10.10.2: icmp_seq=3 ttl=64 time=0.400 ms
+^C
+--- 10.10.10.2 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2001ms
+rtt min/avg/max/mdev = 0.400/334.195/1000.869/471.409 ms, pipe 2
 ```
 
 Does it work? For the next, try tcpdump to watch the packet is transfered
@@ -101,10 +121,10 @@ bellow.
 $ docker exec -it g1 tcpdump -i eth1
 tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
 listening on eth1, link-type EN10MB (Ethernet), capture size 262144 bytes
-10:52:09.979708 IP 192.168.0.1.44544 > 192.168.0.3.8472: OTV, flags [I] (0x08), overlay 0, instance 10
-IP 10.10.10.1 > 10.10.10.6: ICMP echo request, id 29, seq 9, length 64
-10:52:09.979784 IP 192.168.0.3.44544 > 192.168.0.1.8472: OTV, flags [I] (0x08), overlay 0, instance 10
-IP 10.10.10.6 > 10.10.10.1: ICMP echo reply, id 29, seq 9, length 64
+22:57:26.014504 IP 192.168.0.1.38435 > 192.168.10.4.8472: OTV, flags [I] (0x08), overlay 0, instance 10
+IP 10.10.10.1 > 10.10.10.3: ICMP echo request, id 57, seq 10, length 64
+22:57:26.014582 IP 192.168.0.3.38435 > 192.168.10.2.8472: OTV, flags [I] (0x08), overlay 0, instance 10
+IP 10.10.10.3 > 10.10.10.1: ICMP echo reply, id 57, seq 10, length 64
 ```
 
 You can see the traffic between goplane containers is delivered by vxlan
@@ -117,73 +137,15 @@ try next command.
 
 ```
 $ docker exec -it g1 gobgp global rib -a evpn
-   Network                                                                                                  Next Hop     AS_PATH Age        Attrs
-*> [type:macadv][rd:192.168.0.1:0][esi:single-homed][etag:10][mac:22:d5:74:13:25:8f][ip:<nil>][labels:[10]] 0.0.0.0              00:00:11   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:10 VXLAN]}]
-*> [type:macadv][rd:192.168.0.1:0][esi:single-homed][etag:10][mac:aa:aa:aa:aa:aa:01][ip:<nil>][labels:[10]] 0.0.0.0              00:00:10   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:10 VXLAN]}]
-*> [type:macadv][rd:192.168.0.1:0][esi:single-homed][etag:20][mac:3e:72:db:f8:d2:ae][ip:<nil>][labels:[20]] 0.0.0.0              00:00:11   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:20 VXLAN]}]
-*> [type:macadv][rd:192.168.0.1:0][esi:single-homed][etag:20][mac:aa:aa:aa:aa:aa:01][ip:<nil>][labels:[20]] 0.0.0.0              00:00:09   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:20 VXLAN]}]
-*> [type:macadv][rd:192.168.0.2:0][esi:single-homed][etag:10][mac:62:b4:a8:b4:94:32][ip:<nil>][labels:[10]] 192.168.10.3         00:00:01   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:10 VXLAN]} {LocalPref: 100}]
-*> [type:macadv][rd:192.168.0.2:0][esi:single-homed][etag:10][mac:aa:aa:aa:aa:aa:02][ip:<nil>][labels:[10]] 192.168.10.3         00:00:01   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:10 VXLAN]} {LocalPref: 100}]
-*> [type:macadv][rd:192.168.0.2:0][esi:single-homed][etag:20][mac:5e:1c:ea:43:6b:f9][ip:<nil>][labels:[20]] 192.168.10.3         00:00:01   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:20 VXLAN]} {LocalPref: 100}]
-*> [type:macadv][rd:192.168.0.2:0][esi:single-homed][etag:20][mac:aa:aa:aa:aa:aa:02][ip:<nil>][labels:[20]] 192.168.10.3         00:00:01   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:20 VXLAN]} {LocalPref: 100}]
-*> [type:macadv][rd:192.168.0.3:0][esi:single-homed][etag:10][mac:5e:27:97:93:3d:7a][ip:<nil>][labels:[10]] 192.168.10.4         00:00:01   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:10 VXLAN]} {LocalPref: 100}]
-*> [type:macadv][rd:192.168.0.3:0][esi:single-homed][etag:10][mac:aa:aa:aa:aa:aa:03][ip:<nil>][labels:[10]] 192.168.10.4         00:00:01   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:10 VXLAN]} {LocalPref: 100}]
-*> [type:macadv][rd:192.168.0.3:0][esi:single-homed][etag:20][mac:1a:a1:d8:6d:a2:28][ip:<nil>][labels:[20]] 192.168.10.4         00:00:01   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:20 VXLAN]} {LocalPref: 100}]
-*> [type:macadv][rd:192.168.0.3:0][esi:single-homed][etag:20][mac:aa:aa:aa:aa:aa:03][ip:<nil>][labels:[20]] 192.168.10.4         00:00:01   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:20 VXLAN]} {LocalPref: 100}]
-*> [type:multicast][rd:192.168.0.1:0][etag:10][ip:192.168.0.1]                                              0.0.0.0              00:00:11   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:10 VXLAN]}]
-*> [type:multicast][rd:192.168.0.1:0][etag:20][ip:192.168.0.1]                                              0.0.0.0              00:00:11   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:20 VXLAN]}]
-*> [type:multicast][rd:192.168.0.2:0][etag:10][ip:192.168.0.2]                                              192.168.10.3         00:00:01   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:10 VXLAN]} {LocalPref: 100}]
-*> [type:multicast][rd:192.168.0.2:0][etag:20][ip:192.168.0.2]                                              192.168.10.3         00:00:01   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:20 VXLAN]} {LocalPref: 100}]
-*> [type:multicast][rd:192.168.0.3:0][etag:10][ip:192.168.0.3]                                              192.168.10.4         00:00:01   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:10 VXLAN]} {LocalPref: 100}]
-*> [type:multicast][rd:192.168.0.3:0][etag:20][ip:192.168.0.3]                                              192.168.10.4         00:00:01   [{Origin: IGP} {EXTENDED_COMMUNITIES: [65000:20 VXLAN]} {LocalPref: 100}]
-```
-
-This shows mac addresses of hosts interface. you can see mac addresses are advertised through bgp.
-In evpn, mac address learning doesn't occur in dataplane but in control plane (in bgp).
-After learning in control plane, goplane install proper rules to linux network stack via netlink.
-Let's check that.
-
-```
-$ docker exec -it g1 bridge fdb
-33:33:00:00:00:01 dev eth1 self permanent
-01:00:5e:00:00:01 dev eth1 self permanent
-33:33:ff:88:1b:89 dev eth1 self permanent
-33:33:00:00:00:01 dev eth2 self permanent
-01:00:5e:00:00:01 dev eth2 self permanent
-33:33:ff:2a:6c:21 dev eth2 self permanent
-33:33:00:00:00:01 dev eth3 self permanent
-01:00:5e:00:00:01 dev eth3 self permanent
-33:33:ff:12:ff:6f dev eth3 self permanent
-9e:74:40:03:55:40 dev vtep10 vlan 0 permanent
-b2:2c:ef:2a:6c:21 dev eth2 vlan 0 permanent
-de:5d:d1:52:dd:50 dev vtep10 dst 192.168.0.2 self permanent
-33:33:ff:77:a0:f4 dev vtep10 dst 192.168.0.2 self permanent
-33:33:00:00:00:16 dev vtep10 dst 192.168.0.3 self permanent
-33:33:ff:c5:24:4d dev vtep10 dst 192.168.0.3 self permanent
-0a:62:40:be:15:40 dev vtep10 dst 192.168.0.2 self permanent
-aa:aa:aa:aa:aa:02 dev vtep10 dst 192.168.0.2 self permanent
-aa:aa:aa:aa:aa:03 dev vtep10 dst 192.168.0.3 self permanent
-ba:fe:66:ed:81:4e dev vtep10 dst 192.168.0.3 self permanent
-fa:e1:0c:fa:28:88 dev vtep10 dst 192.168.0.2 self permanent
-33:33:ff:1a:cc:15 dev vtep10 dst 192.168.0.3 self permanent
-33:33:ff:f6:d1:99 dev vtep10 dst 192.168.0.2 self permanent
-c6:74:3f:df:68:52 dev vtep10 dst 192.168.0.2 self permanent
-2a:bc:df:a2:bf:79 dev vtep10 dst 192.168.0.3 self permanent
-4e:0f:87:12:ff:6f dev eth3 vlan 0 permanent
-aa:aa:aa:aa:aa:02 dev vtep20 vlan 0
-6e:54:5b:0b:95:e8 dev vtep20 vlan 0 permanent
-aa:aa:aa:aa:aa:01 dev eth3 vlan 0
-de:5d:d1:52:dd:50 dev vtep20 dst 192.168.0.2 self permanent
-33:33:ff:77:a0:f4 dev vtep20 dst 192.168.0.2 self permanent
-33:33:00:00:00:16 dev vtep20 dst 192.168.0.3 self permanent
-33:33:ff:c5:24:4d dev vtep20 dst 192.168.0.3 self permanent
-0a:62:40:be:15:40 dev vtep20 dst 192.168.0.2 self permanent
-aa:aa:aa:aa:aa:02 dev vtep20 dst 192.168.0.2 self permanent
-aa:aa:aa:aa:aa:03 dev vtep20 dst 192.168.0.3 self permanent
-ba:fe:66:ed:81:4e dev vtep20 dst 192.168.0.3 self permanent
-fa:e1:0c:fa:28:88 dev vtep20 dst 192.168.0.2 self permanent
-33:33:ff:1a:cc:15 dev vtep20 dst 192.168.0.3 self permanent
-33:33:ff:f6:d1:99 dev vtep20 dst 192.168.0.2 self permanent
-c6:74:3f:df:68:52 dev vtep20 dst 192.168.0.2 self permanent
-2a:bc:df:a2:bf:79 dev vtep20 dst 192.168.0.3 self permanent
+   Network                                                              Labels     Next Hop             AS_PATH              Age        Attrs
+*> [type:macadv][rd:65000:20][etag:20][mac:aa:aa:aa:aa:aa:02][ip:<nil>] [20]       192.168.10.3                              00:02:14   [{Origin: i} {LocalPref: 100} {Extcomms: [VXLAN]} [ESI: single-homed]]
+*> [type:multicast][rd:65000:10][etag:10][ip:192.168.0.2]                          192.168.10.3                              00:04:01   [{Origin: i} {LocalPref: 100} {Extcomms: [65000:10]} {Pmsi: type: ingress-repl, label: 0, tunnel-id: 192.168.0.2}]
+*> [type:macadv][rd:65000:10][etag:10][mac:aa:aa:aa:aa:aa:01][ip:<nil>] [10]       0.0.0.0                                   00:04:00   [{Origin: i} {Extcomms: [VXLAN]} [ESI: single-homed]]
+*> [type:multicast][rd:65000:10][etag:10][ip:192.168.0.3]                          192.168.10.4                              00:04:01   [{Origin: i} {LocalPref: 100} {Extcomms: [65000:10]} {Pmsi: type: ingress-repl, label: 0, tunnel-id: 192.168.0.3}]
+*> [type:macadv][rd:65000:10][etag:10][mac:aa:aa:aa:aa:aa:03][ip:<nil>] [10]       192.168.10.4                              00:04:00   [{Origin: i} {LocalPref: 100} {Extcomms: [VXLAN]} [ESI: single-homed]]
+*> [type:multicast][rd:65000:10][etag:10][ip:192.168.0.1]                          0.0.0.0                                   00:04:01   [{Origin: i} {Pmsi: type: ingress-repl, label: 0, tunnel-id: 192.168.0.1} {Extcomms: [65000:10]}]
+*> [type:macadv][rd:65000:20][etag:20][mac:aa:aa:aa:aa:aa:01][ip:<nil>] [20]       0.0.0.0                                   00:02:14   [{Origin: i} {Extcomms: [VXLAN]} [ESI: single-homed]]
+*> [type:multicast][rd:65000:20][etag:20][ip:192.168.0.2]                          192.168.10.3                              00:04:01   [{Origin: i} {LocalPref: 100} {Extcomms: [65000:20]} {Pmsi: type: ingress-repl, label: 0, tunnel-id: 192.168.0.2}]
+*> [type:multicast][rd:65000:20][etag:20][ip:192.168.0.1]                          0.0.0.0                                   00:04:01   [{Origin: i} {Pmsi: type: ingress-repl, label: 0, tunnel-id: 192.168.0.1} {Extcomms: [65000:20]}]
+*> [type:multicast][rd:65000:20][etag:20][ip:192.168.0.3]                          192.168.10.4                              00:04:01   [{Origin: i} {LocalPref: 100} {Extcomms: [65000:20]} {Pmsi: type: ingress-repl, label: 0, tunnel-id: 192.168.0.3}]
 ```

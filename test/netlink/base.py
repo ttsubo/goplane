@@ -90,7 +90,7 @@ class Bridge(object):
         self.ctns = []
 
     def next_ip_address(self):
-        return "{0}/{1}".format(self._ip_generator.next(),
+        return "{0}/{1}".format(next(self._ip_generator),
                                 self.subnet.prefixlen)
 
     def addif(self, ctn, ifname='', mac=''):
@@ -178,7 +178,7 @@ class BGPContainer(Container):
         self.config_dir = "{0}/{1}".format(TEST_BASE_DIR, name)
         if not os.path.exists(self.config_dir):
             os.makedirs(self.config_dir)
-            os.chmod(self.config_dir, 0777)
+            os.chmod(self.config_dir, 0o777)
         self.asn = asn
         self.router_id = router_id
         self.peers = {}
@@ -233,7 +233,7 @@ class GoPlaneContainer(BGPContainer):
     PEER_TYPE_EXTERNAL = 'external'
     SHARED_VOLUME = '/root/shared_volume'
 
-    def __init__(self, name, asn, router_id, ctn_image_name='osrg/goplane',
+    def __init__(self, name, asn, router_id, ctn_image_name='ttsubo/goplane',
                  log_level='debug', bgp_remote=False):
         super(GoPlaneContainer, self).__init__(name, asn, router_id,
                                              ctn_image_name)
@@ -249,7 +249,7 @@ class GoPlaneContainer(BGPContainer):
                 f.write('''#!/bin/bash
     gobgpd -f {0}/gobgpd.conf -l {1} -p > {0}/gobgpd.log 2>&1
     '''.format(self.SHARED_VOLUME, self.log_level))
-            os.chmod(name, 0755)
+            os.chmod(name, 0o755)
             self.local('{0}/start_gobgp.sh'.format(self.SHARED_VOLUME), detach=True)
 
             time.sleep(1)
@@ -259,7 +259,7 @@ class GoPlaneContainer(BGPContainer):
             f.write('''#!/bin/bash
 goplane -f {0}/goplane.conf -l {1} -p > {0}/goplane.log 2>&1
 '''.format(self.SHARED_VOLUME, self.log_level))
-        os.chmod(name, 0755)
+        os.chmod(name, 0o755)
         self.local('{0}/start_goplane.sh'.format(self.SHARED_VOLUME), detach=True)
 
 
@@ -290,7 +290,7 @@ goplane -f {0}/goplane.conf -l {1} -p > {0}/goplane.log 2>&1
     def create_gobgp_config(self):
         config = {'global': {'config': {'as': self.asn, 'router-id': self.router_id},
                              'use-multiple-paths': {'config': {'enabled': True}}}}
-        for peer, info in self.peers.iteritems():
+        for peer, info in self.peers.items():
             if info['interface'] == '':
                 if self.asn == peer.asn:
                     peer_type = self.PEER_TYPE_INTERNAL

@@ -23,6 +23,8 @@ import json
 from noseplugin import OptionParser
 from base import *
 
+ESTABLISHED = 6
+
 class Test(unittest.TestCase):
 
     @classmethod
@@ -90,7 +92,7 @@ class Test(unittest.TestCase):
 
     def test_01_neighbor_established(self):
         for i in range(20):
-            if all(v['state']['session-state'] == 'established' for v in json.loads(self.ctns['g1'].local('gobgp neighbor -j'))):
+            if all(v['state']['session_state'] == ESTABLISHED for v in json.loads(self.ctns['g1'].local('gobgp neighbor -j'))):
                     logging.debug('all peers got established')
                     return
             time.sleep(1)
@@ -109,8 +111,8 @@ class Test(unittest.TestCase):
         logging.debug(self.ctns['g1'].local('gobgp global rib -a evpn'))
 
 if __name__ == '__main__':
-    if os.geteuid() is not 0:
-        print "you are not root."
+    if os.geteuid() != 0:
+        print("you are not root.")
         sys.exit(1)
     logging.basicConfig(stream=sys.stderr)
     nose.main(argv=sys.argv, addplugins=[OptionParser()],
