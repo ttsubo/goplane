@@ -149,3 +149,26 @@ $ docker exec -it g1 gobgp global rib -a evpn
 *> [type:multicast][rd:65000:20][etag:20][ip:192.168.0.1]                          0.0.0.0                                   00:04:01   [{Origin: i} {Pmsi: type: ingress-repl, label: 0, tunnel-id: 192.168.0.1} {Extcomms: [65000:20]}]
 *> [type:multicast][rd:65000:20][etag:20][ip:192.168.0.3]                          192.168.10.4                              00:04:01   [{Origin: i} {LocalPref: 100} {Extcomms: [65000:20]} {Pmsi: type: ingress-repl, label: 0, tunnel-id: 192.168.0.3}]
 ```
+
+This shows mac addresses of hosts interface. you can see mac addresses are advertised through bgp.
+In evpn, mac address learning doesn't occur in dataplane but in control plane (in bgp).
+After learning in control plane, goplane install proper rules to linux network stack via netlink.
+Let's check that.
+
+
+```
+$ docker exec -it g1 bridge fdb
+01:00:5e:00:00:01 dev br10 self permanent
+33:33:ff:86:dd:ed dev br10 self permanent
+ea:d0:7a:7a:b8:96 dev vtep10 vlan 1 master br10 permanent
+aa:aa:aa:aa:aa:03 dev vtep10 master br10 
+ea:d0:7a:7a:b8:96 dev vtep10 master br10 permanent
+aa:aa:aa:aa:aa:03 dev vtep10 dst 192.168.10.4 self permanent
+33:33:00:00:00:01 dev br20 self permanent
+01:00:5e:00:00:01 dev br20 self permanent
+33:33:ff:cf:e5:a2 dev br20 self permanent
+aa:aa:aa:aa:aa:02 dev vtep20 master br20 
+e2:93:7a:3e:18:42 dev vtep20 master br20 permanent
+e2:93:7a:3e:18:42 dev vtep20 vlan 1 master br20 permanent
+aa:aa:aa:aa:aa:02 dev vtep20 dst 192.168.10.3 self permanent
+```
