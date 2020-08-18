@@ -39,9 +39,9 @@ class Test(unittest.TestCase):
         js = [j1, j2, j3]
         hosts = hs + js
 
-        g1 = GoPlaneContainer(name='g1', asn=65000, router_id='192.168.0.1')
-        g2 = GoPlaneContainer(name='g2', asn=65000, router_id='192.168.0.2')
-        g3 = GoPlaneContainer(name='g3', asn=65000, router_id='192.168.0.3')
+        g1 = GoPlaneContainer(name='g1', asn=65000, router_id='192.168.10.2')
+        g2 = GoPlaneContainer(name='g2', asn=65000, router_id='192.168.10.3')
+        g3 = GoPlaneContainer(name='g3', asn=65000, router_id='192.168.10.4')
         bgps = [g1, g2, g3]
 
         for idx, ctn in enumerate(bgps):
