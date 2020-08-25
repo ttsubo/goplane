@@ -170,50 +170,62 @@ func (d *Dataplane) getNexthop(path *api.Path) (int, net.IP, int) {
 }
 
 func (d *Dataplane) modRib(paths []*table.Path) error {
-	if len(paths) == 0 {
-		return nil
-	}
-	p := paths[0]
-
-	nlri := p.GetNlri()
-	dst, _ := netlink.ParseIPNet(nlri.String())
-	route := &netlink.Route{
-		Dst: dst,
-		Src: net.ParseIP(d.routerId),
-	}
-
-	if len(paths) == 1 {
-		if toPathApi(p, nil).NeighborIp == "<nil>" {
-			return nil
-		}
-		link, gw, flags := d.getNexthop(toPathApi(p, nil))
-		route.Gw = gw
-		route.LinkIndex = link
-		route.Flags = flags
-	} else {
-		mp := make([]*netlink.NexthopInfo, 0, len(paths))
-		for _, path := range paths {
-			if toPathApi(path, nil).NeighborIp == "<nil>" {
-				continue
+	routingInfo := make(map[string][]*table.Path)
+	var routes []*netlink.Route
+	for _, p := range paths {
+		dest := p.GetNlri().String()
+		routingInfo[dest] = append(routingInfo[dest], p)
+		if p.IsWithdraw {
+			dst, _ := netlink.ParseIPNet(dest)
+			route := &netlink.Route{
+				Dst: dst,
+				Src: net.ParseIP(d.routerId),
 			}
-			link, gw, flags := d.getNexthop(toPathApi(path, nil))
-			mp = append(mp, &netlink.NexthopInfo{
-				Gw:        gw,
-				LinkIndex: link,
-				Flags:     flags,
-			})
+			log.Info("del route:", route)
+			return netlink.RouteDel(route)
 		}
-		if len(mp) == 0 {
-			return nil
+	}
+
+	for dest, paths := range routingInfo {
+		dst, _ := netlink.ParseIPNet(dest)
+		route := &netlink.Route{
+			Dst: dst,
+			Src: net.ParseIP(d.routerId),
 		}
-		route.MultiPath = mp
+
+		if len(paths) == 1 {
+			if toPathApi(paths[0], nil).NeighborIp == "<nil>" {
+				return nil
+			}
+			link, gw, flags := d.getNexthop(toPathApi(paths[0], nil))
+			route.Gw = gw
+			route.LinkIndex = link
+			route.Flags = flags
+			routes = append(routes, route)
+		} else {
+			mp := make([]*netlink.NexthopInfo, 0, len(paths))
+			for _, path := range paths {
+				if toPathApi(path, nil).NeighborIp == "<nil>" {
+					continue
+				}
+				link, gw, flags := d.getNexthop(toPathApi(path, nil))
+				mp = append(mp, &netlink.NexthopInfo{
+					Gw:        gw,
+					LinkIndex: link,
+					Flags:     flags,
+				})
+			}
+			route.MultiPath = mp
+			routes = append(routes, route)
+		}
 	}
-	if p.IsWithdraw {
-		log.Info("del route:", route)
-		return netlink.RouteDel(route)
+	for _, route := range routes {
+		log.Info("add route:", route)
+		if err := netlink.RouteReplace(route); err != nil {
+			return err
+		}
 	}
-	log.Info("add route:", route)
-	return netlink.RouteReplace(route)
+	return nil
 }
 
 func (d *Dataplane) monitorBest() error {
@@ -237,11 +249,14 @@ func (d *Dataplane) monitorBest() error {
 						l = append(l, p...)
 					}
 					paths = l
+					log.Debug("## msg.MultiPathList", paths)
 				} else {
 					paths = msg.PathList
+					log.Debug("## msg.PathList", paths)
 				}
 			case *bgpserver.WatchEventUpdate:
 				paths = msg.PathList
+				log.Debug("## msg.PathList2", paths)
 			}
 			for _, path := range paths {
 				if path == nil || family != path.GetRouteFamily() {
